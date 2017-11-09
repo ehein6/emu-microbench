@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <cilk/cilk.h>
 #include <assert.h>
+#include <string.h>
 
 #include "timer.h"
 #include "recursive_spawn.h"
@@ -20,12 +21,16 @@ void
 local_stream_init(local_stream_data * data, long n)
 {
     data->n = n;
-    data->a = malloc(data->n * sizeof(long));
+    data->a = malloc(n * sizeof(long));
     assert(data->a);
-    data->b = malloc(data->n * sizeof(long));
+    data->b = malloc(n * sizeof(long));
     assert(data->b);
-    data->c = malloc(data->n * sizeof(long));
+    data->c = malloc(n * sizeof(long));
     assert(data->c);
+
+    memset(data->a, 0, n * sizeof(long));
+    memset(data->b, 0, n * sizeof(long));
+    memset(data->c, 0, n * sizeof(long));
 }
 
 void
@@ -108,7 +113,8 @@ int main(int argc, char** argv)
 
     local_stream_data data;
     local_stream_init(&data, atol(argv[1]));
-
+    printf("sizeof(long) == %li\n", sizeof(long));
+    printf("Arrays have %li elements (%li MiB)\n", data.n, (data.n * sizeof(long)) / (1024*1024));
     printf("num_threads == 1\n");
     data.num_threads = 1;
     RUN_BENCHMARK(local_stream_add_serial);
