@@ -94,6 +94,18 @@ local_stream_add_recursive_spawn(local_stream_data * data)
     recursive_spawn_add(0, data->n, data->n / data->num_threads, data);
 }
 
+void
+local_stream_add_serial_spawn(local_stream_data * data)
+{
+    long grain = data->n / data->num_threads;
+    for (long i = 0; i < data->n; i += grain) {
+        long begin = i;
+        long end = begin + grain <= data->n ? begin + grain : end;
+        cilk_spawn recursive_spawn_add_worker(begin, end, data);
+    }
+    cilk_sync;
+}
+
 #define RUN_BENCHMARK(X) \
 do {                                                        \
     timer_start();                                          \
@@ -106,28 +118,45 @@ do {                                                        \
 
 int main(int argc, char** argv)
 {
-
     if (argc != 2) {
         printf("Usage: %s num_elements\n", argv[0]);
         exit(1);
     }
 
-    local_stream_data data;
-    local_stream_init(&data, atol(argv[1]));
+    long n = atol(argv[1]);
+
+    // Pass 0 for timer calibration loop
+    if (n == 0) {
+        for (long i = 0; i < 60; ++i) {
+            timer_delay_1s();
+            printf("%li ", i); fflush(stdout);
+        }
+        return 0;
+    }
     printf("sizeof(long) == %li\n", sizeof(long));
-    printf("Arrays have %li elements (%li MiB)\n", data.n, (data.n * sizeof(long)) / (1024*1024));
+    printf("Initializing arrays with %li elements each (%li MiB)\n", n, (n * sizeof(long)) / (1024*1024));
+    fflush(stdout);
+
+    timer_start();
+    local_stream_data data;
+    local_stream_init(&data, n);
+    long init_ticks = timer_stop();
+    timer_print_bandwidth("init", timer_calc_bandwidth(init_ticks, n * sizeof(long) * 3));
+
     printf("num_threads == 1\n");
     data.num_threads = 1;
     RUN_BENCHMARK(local_stream_add_serial);
-    RUN_BENCHMARK(local_stream_add_serial);
-    RUN_BENCHMARK(local_stream_add_serial);
 
-    for (data.num_threads = 2; data.num_threads <= 256; data.num_threads *= 2)
+    for (data.num_threads = 2; data.num_threads <= 128; data.num_threads *= 2)
     {
         printf("num_threads == %li\n", data.num_threads);
-        RUN_BENCHMARK(local_stream_add_cilk_for);
-        RUN_BENCHMARK(local_stream_add_cilk_for);
-        RUN_BENCHMARK(local_stream_add_cilk_for);
+        RUN_BENCHMARK(local_stream_add_serial_spawn);
+    }
+
+    for (data.num_threads = 2; data.num_threads <= 128; data.num_threads *= 2)
+    {
+        printf("num_threads == %li\n", data.num_threads);
+        RUN_BENCHMARK(local_stream_add_recursive_spawn);
     }
 
     local_stream_deinit(&data);

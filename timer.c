@@ -3,7 +3,7 @@
 
 #ifdef __le64__
 #include <memoryweb.h>
-#define CLOCK_RATE (154e6)
+#define CLOCK_RATE (126e6)
 #else
 #include <unistd.h>
 #include <sys/time.h>
@@ -37,7 +37,13 @@ timer_stop()
     return timer_timestamp + CLOCK();
 }
 
-
+void
+timer_delay_1s()
+{
+    MIGRATE(&timer_timestamp);
+    timer_timestamp = CLOCK() + CLOCK_RATE;
+    while (CLOCK() <= timer_timestamp);
+}
 
 double
 timer_calc_bandwidth(long ticks, long bytes)
