@@ -28,9 +28,10 @@ local_stream_init(local_stream_data * data, long n)
     data->c = malloc(n * sizeof(long));
     assert(data->c);
 
-    memset(data->a, 0, n * sizeof(long));
-    memset(data->b, 0, n * sizeof(long));
-    memset(data->c, 0, n * sizeof(long));
+    cilk_spawn memset(data->a, 0, n * sizeof(long));
+    cilk_spawn memset(data->b, 0, n * sizeof(long));
+    cilk_spawn memset(data->c, 0, n * sizeof(long));
+    cilk_sync;
 }
 
 void
