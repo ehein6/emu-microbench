@@ -12,6 +12,13 @@ list(APPEND ${CMAKE_CXX_FLAGS} "-std=c++11")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
+    set(BUILD_FOR_EMUSIM OFF
+        CACHE BOOL "If enabled, will call starttiming() at the beginning of the ROI")
+
+    if (${BUILD_FOR_EMUSIM})
+        add_definitions(-DBUILD_FOR_EMUSIM)
+    endif()
+
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
     link_directories("${LIBC_INSTALL}/lib" "${MEMWEB_INSTALL}/lib")
     link_libraries(memoryweb muslc)

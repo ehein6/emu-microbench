@@ -53,6 +53,7 @@ local_stream_add_serial(local_stream_data * data)
 void
 local_stream_add_cilk_for(local_stream_data * data)
 {
+    #pragma cilk grainsize = data->n / data->num_threads
     cilk_for (long i = 0; i < data->n; ++i) {
         data->c[i] = data->a[i] + data->b[i];
     }
@@ -102,45 +103,41 @@ do {                                                        \
 
 int main(int argc, char** argv)
 {
-    if (argc != 2) {
-        printf("Usage: %s num_elements\n", argv[0]);
+    struct {
+        const char* mode;
+        long num_elements;
+        long num_threads;
+    } args;
+
+    if (argc != 4) {
+        printf("Usage: %s mode num_elements num_threads\n", argv[0]);
         exit(1);
+    } else {
+        args.mode = argv[1];
+        args.num_elements = atol(argv[2]);
+        args.num_threads = atol(argv[3]);
+
+        if (args.num_elements <= 0) { printf("num_elements must be > 0"); exit(1); }
+        if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
     }
 
-    long n = atol(argv[1]);
-
-    // Pass 0 for timer calibration loop
-    if (n == 0) {
-        for (long i = 0; i < 60; ++i) {
-            timer_delay_1s();
-            printf("%li ", i); fflush(stdout);
-        }
-        return 0;
-    }
-    printf("sizeof(long) == %li\n", sizeof(long));
-    printf("Initializing arrays with %li elements each (%li MiB)\n", n, (n * sizeof(long)) / (1024*1024));
-    fflush(stdout);
-
-    timer_start();
+    printf("Initializing arrays with %li elements each (%li MiB)\n",
+        args.num_elements, (args.num_elements * sizeof(long)) / (1024*1024)); fflush(stdout);
     local_stream_data data;
-    local_stream_init(&data, n);
-    long init_ticks = timer_stop();
-    timer_print_bandwidth("init", timer_calc_bandwidth(init_ticks, n * sizeof(long) * 3));
+    data.num_threads = args.num_threads;
+    local_stream_init(&data, args.num_elements);
+    printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
 
-    printf("num_threads == 1\n");
-    data.num_threads = 1;
-    RUN_BENCHMARK(local_stream_add_serial);
-
-    for (data.num_threads = 2; data.num_threads <= 128; data.num_threads *= 2)
-    {
-        printf("num_threads == %li\n", data.num_threads);
+    if (!strcmp(args.mode, "cilk_for")) {
+        RUN_BENCHMARK(local_stream_add_cilk_for);
+    } else if (!strcmp(args.mode, "serial_spawn")) {
         RUN_BENCHMARK(local_stream_add_serial_spawn);
-    }
-
-    for (data.num_threads = 2; data.num_threads <= 128; data.num_threads *= 2)
-    {
-        printf("num_threads == %li\n", data.num_threads);
+    } else if (!strcmp(args.mode, "recursive_spawn")) {
         RUN_BENCHMARK(local_stream_add_recursive_spawn);
+    } else if (!strcmp(args.mode, "serial")) {
+        RUN_BENCHMARK(local_stream_add_serial);
+    } else {
+        printf("Mode %s not implemented!", args.mode);
     }
 
     local_stream_deinit(&data);

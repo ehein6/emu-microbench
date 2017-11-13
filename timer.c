@@ -26,6 +26,9 @@ static long timer_timestamp;
 void
 timer_start()
 {
+#ifdef BUILD_FOR_EMUSIM
+    starttiming();
+#endif
     MIGRATE(&timer_timestamp);
     timer_timestamp = -CLOCK();
 }
