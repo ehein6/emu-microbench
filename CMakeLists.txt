@@ -31,3 +31,4 @@ endif()
 
 
 add_executable(local_stream local_stream.c timer.c)
+add_executable(global_stream global_stream.c timer.c)
