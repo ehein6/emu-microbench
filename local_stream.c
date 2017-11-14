@@ -105,7 +105,7 @@ int main(int argc, char** argv)
 {
     struct {
         const char* mode;
-        long num_elements;
+        long log2_num_elements;
         long num_threads;
     } args;
 
@@ -114,18 +114,19 @@ int main(int argc, char** argv)
         exit(1);
     } else {
         args.mode = argv[1];
-        args.num_elements = atol(argv[2]);
+        args.log2_num_elements = atol(argv[2]);
         args.num_threads = atol(argv[3]);
 
-        if (args.num_elements <= 0) { printf("num_elements must be > 0"); exit(1); }
+        if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
         if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
     }
 
+    long n = 1L << args.log2_num_elements;
     printf("Initializing arrays with %li elements each (%li MiB)\n",
-        args.num_elements, (args.num_elements * sizeof(long)) / (1024*1024)); fflush(stdout);
+        n, (n * sizeof(long)) / (1024*1024)); fflush(stdout);
     local_stream_data data;
     data.num_threads = args.num_threads;
-    local_stream_init(&data, args.num_elements);
+    local_stream_init(&data, n);
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
 
     if (!strcmp(args.mode, "cilk_for")) {
