@@ -179,8 +179,10 @@ int main(int argc, char** argv)
     }
 
     long n = 1L << args.log2_num_elements;
-    printf("Initializing arrays with %li elements each (%li MiB)\n",
-        n, (n * sizeof(long)) / (1024*1024)); fflush(stdout);
+    long mbytes = n * sizeof(long) / (1024*1024);
+    long mbytes_per_nodelet = mbytes / NODELETS();
+    printf("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", n, mbytes, mbytes_per_nodelet);
+    fflush(stdout);
     data.num_threads = args.num_threads;
     global_stream_init(&data, n);
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
