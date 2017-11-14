@@ -14,6 +14,7 @@
 #else
 
 #define NODELETS() (8)
+#define replicated
 
 void *
 mw_malloc2d(size_t nelem, size_t sz)
@@ -27,7 +28,6 @@ mw_malloc2d(size_t nelem, size_t sz)
     for (size_t i = 0; i < nelem; ++i) {
         ptrs[i] = data + i * sz;
     }
-    printf("Allocated %li bytes at %p\n", bytes, (long*)ptrs);
     return ptrs;
 }
 
@@ -74,6 +74,15 @@ global_stream_init(global_stream_data * data, long n)
         cilk_spawn memset(data->b[i], 0, block_sz);
         cilk_spawn memset(data->c[i], 0, block_sz);
     }
+    cilk_sync;
+
+#ifdef __le64__
+    // Replicate pointers to all other nodelets
+    for (long i = 1; i < NODELETS(); ++i) {
+        global_stream_data * r = mw_get_nth(data, i);
+        memcpy(r, data, sizeof(global_stream_data));
+    }
+#endif
 }
 
 void
@@ -146,6 +155,8 @@ do {                                                        \
 } while (0)
 
 
+replicated global_stream_data data;
+
 int main(int argc, char** argv)
 {
     struct {
@@ -168,7 +179,6 @@ int main(int argc, char** argv)
 
     printf("Initializing arrays with %li elements each (%li MiB)\n",
         args.num_elements, (args.num_elements * sizeof(long)) / (1024*1024)); fflush(stdout);
-    global_stream_data data;
     data.num_threads = args.num_threads;
     global_stream_init(&data, args.num_elements);
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
