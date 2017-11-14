@@ -79,9 +79,10 @@ global_stream_init(global_stream_data * data, long n)
 
 #ifdef __le64__
     // Replicate pointers to all other nodelets
+    data = mw_get_nth(data, 0);
     for (long i = 1; i < NODELETS(); ++i) {
-        global_stream_data * r = mw_get_nth(data, i);
-        memcpy(r, data, sizeof(global_stream_data));
+        global_stream_data * remote_data = mw_get_nth(data, i);
+        memcpy(remote_data, data, sizeof(global_stream_data));
     }
 #endif
 }
