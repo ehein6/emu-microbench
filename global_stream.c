@@ -70,9 +70,9 @@ global_stream_init(global_stream_data * data, long n)
     assert(data->c);
 
     for (long i = 0; i < NODELETS(); ++i) {
-        memset(data->a[i], 0, block_sz);
-        memset(data->b[i], 0, block_sz);
-        memset(data->c[i], 0, block_sz);
+        cilk_spawn memset(data->a[i], 0, block_sz);
+        cilk_spawn memset(data->b[i], 0, block_sz);
+        cilk_spawn memset(data->c[i], 0, block_sz);
     }
 }
 
