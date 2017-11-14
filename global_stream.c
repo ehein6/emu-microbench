@@ -15,6 +15,7 @@
 
 #define NODELETS() (8)
 #define replicated
+#define PRIORITY(X) (63-__builtin_clzl(X))
 
 void *
 mw_malloc2d(size_t nelem, size_t sz)
@@ -54,8 +55,8 @@ typedef struct global_stream_data {
 } global_stream_data;
 
 
-#define INDEX(PTR, BLOCK, I) (PTR[I/BLOCK][I%BLOCK])
-// #define INDEX(PTR, BLOCK, I) (PTR[I >> PRIORITY(BLOCK)][I&(BLOCK-1)])
+// #define INDEX(PTR, BLOCK, I) (PTR[I/BLOCK][I%BLOCK])
+#define INDEX(PTR, BLOCK, I) (PTR[I >> PRIORITY(BLOCK)][I&(BLOCK-1)])
 
 void
 global_stream_init(global_stream_data * data, long n)
