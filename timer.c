@@ -3,7 +3,7 @@
 
 #ifdef __le64__
 #include <memoryweb.h>
-#define CLOCK_RATE (3006)
+#define CLOCK_RATE (300e6)
 #else
 #include <unistd.h>
 #include <sys/time.h>
