@@ -187,6 +187,44 @@ global_stream_add_serial_remote_spawn(global_stream_data * data)
     cilk_sync;
 }
 
+noinline void
+recursive_remote_spawn_level2_worker(long begin, long end, long * a, long * b, long * c)
+{
+    for (long i = begin; i < end; ++i) {
+        c[i] = a[i] + b[i];
+    }
+}
+
+noinline void
+recursive_remote_spawn_level2(long begin, long end, long grain, long * a, long * b, long * c)
+{
+    RECURSIVE_CILK_SPAWN(begin, end, grain, recursive_remote_spawn_level2, a, b, c);
+}
+
+noinline void
+recursive_remote_spawn_level1(long low, long high, long * hint, global_stream_data * data)
+{
+    for (;;) {
+        long count = high - low;
+        if (count == 1) break;
+        long mid = low + count / 2;
+        cilk_spawn recursive_remote_spawn_level1(low, mid, data->a[low], data);
+        low = mid;
+    }
+
+    /* Recursive base case: call worker function */
+    long local_n = data->n / NODELETS();
+    long grain = data->n / data->num_threads;
+    recursive_remote_spawn_level2(0, local_n, grain, data->a[low], data->b[low], data->c[low]);
+}
+
+// recursive_remote_spawn - Recursively spawns threads to divice up the loop range, using remote spawns where possible.
+void
+global_stream_add_recursive_remote_spawn(global_stream_data * data)
+{
+    recursive_remote_spawn_level1(0, NODELETS(), data->a[0], data);
+}
+
 // serial_remote_spawn_shallow - same as serial_remote_spawn, but with only one level of spawning
 void
 global_stream_add_serial_remote_spawn_shallow(global_stream_data * data)
@@ -268,6 +306,9 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(global_stream_add_serial_remote_spawn_shallow);
     } else if (!strcmp(args.mode, "recursive_spawn")) {
         RUN_BENCHMARK(global_stream_add_recursive_spawn);
+    } else if (!strcmp(args.mode, "recursive_remote_spawn")) {
+        runtime_assert(data.num_threads >= NODELETS(), "recursive_remote_spawn mode will always use at least one thread per nodelet");
+        RUN_BENCHMARK(global_stream_add_recursive_remote_spawn);
     } else if (!strcmp(args.mode, "serial")) {
         runtime_assert(data.num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(global_stream_add_serial);
