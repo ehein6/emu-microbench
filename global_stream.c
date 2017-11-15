@@ -13,10 +13,12 @@
 #include <memoryweb.h>
 #else
 
+// Mimic memoryweb behavior on x86
+// TODO eventually move this all to its own header file
 #define NODELETS() (8)
 #define replicated
 #define PRIORITY(X) (63-__builtin_clzl(X))
-
+#define noinline __attribute__ ((noinline))
 void *
 mw_malloc2d(size_t nelem, size_t sz)
 {
@@ -95,6 +97,7 @@ global_stream_deinit(global_stream_data * data)
     mw_free(data->c);
 }
 
+// serial - just a regular for loop
 void
 global_stream_add_serial(global_stream_data * data)
 {
@@ -104,6 +107,7 @@ global_stream_add_serial(global_stream_data * data)
     }
 }
 
+// cilk_for - cilk_for loop with grainsize set to control number of threads
 void
 global_stream_add_cilk_for(global_stream_data * data)
 {
@@ -114,7 +118,7 @@ global_stream_add_cilk_for(global_stream_data * data)
     }
 }
 
-static void
+noinline void
 recursive_spawn_add_worker(long begin, long end, global_stream_data *data)
 {
     long block_sz = sizeof(long) * data->n / NODELETS();
@@ -123,18 +127,20 @@ recursive_spawn_add_worker(long begin, long end, global_stream_data *data)
     }
 }
 
-static void
+noinline void
 recursive_spawn_add(long begin, long end, long grain, global_stream_data *data)
 {
     RECURSIVE_CILK_SPAWN(begin, end, grain, recursive_spawn_add, data);
 }
 
+// recursive_spawn - recursively spawn threads to subdivide the range until the grain size is reached
 void
 global_stream_add_recursive_spawn(global_stream_data * data)
 {
     recursive_spawn_add(0, data->n, data->n / data->num_threads, data);
 }
 
+// serial_spawn - spawn one thread to handle each grain-sized chunk of the range
 void
 global_stream_add_serial_spawn(global_stream_data * data)
 {
@@ -147,6 +153,41 @@ global_stream_add_serial_spawn(global_stream_data * data)
     cilk_sync;
 }
 
+noinline void
+serial_remote_spawn_level2(long begin, long end, long * a, long * b, long * c)
+{
+    for (long i = begin; i < end; ++i) {
+        c[i] = a[i] + b[i];
+    }
+}
+
+noinline void
+serial_remote_spawn_level1(long * a, long * b, long * c, long n, long grain)
+{
+    for (long i = 0; i < n; i += grain) {
+        long begin = i;
+        long end = begin + grain <= n ? begin + grain : end;
+        cilk_spawn serial_remote_spawn_level2(begin, end, a, b, c);
+    }
+    cilk_sync;
+}
+
+// serial_remote_spawn - remote spawn a thread on each nodelet, then do a serial spawn locally
+void
+global_stream_add_serial_remote_spawn(global_stream_data * data)
+{
+    // Each thread will be responsible for the elements on one nodelet
+    long local_n = data->n / NODELETS();
+    // Calculate the grain so we get the right number of threads globally
+    long grain = data->n / data->num_threads;
+    // Spawn a thread on each nodelet
+    for (long i = 0; i < NODELETS(); ++i) {
+        cilk_spawn serial_remote_spawn_level1(data->a[i], data->b[i], data->c[i], local_n, grain);
+    }
+    cilk_sync;
+}
+
+
 #define RUN_BENCHMARK(X) \
 do {                                                        \
     timer_start();                                          \
@@ -155,6 +196,14 @@ do {                                                        \
     double bw = timer_calc_bandwidth(ticks, data.n * sizeof(long) * 3); \
     timer_print_bandwidth( #X , bw);                        \
 } while (0)
+
+void
+runtime_assert(bool condition, const char* message) {
+    if (!condition) {
+        printf("ERROR: %s\n", message); fflush(stdout);
+        exit(1);
+    }
+}
 
 
 replicated global_stream_data data;
@@ -192,9 +241,13 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(global_stream_add_cilk_for);
     } else if (!strcmp(args.mode, "serial_spawn")) {
         RUN_BENCHMARK(global_stream_add_serial_spawn);
+    } else if (!strcmp(args.mode, "serial_remote_spawn")) {
+        runtime_assert(data.num_threads >= NODELETS(), "serial_remote_spawn mode will always use at least one thread per nodelet");
+        RUN_BENCHMARK(global_stream_add_serial_remote_spawn);
     } else if (!strcmp(args.mode, "recursive_spawn")) {
         RUN_BENCHMARK(global_stream_add_recursive_spawn);
     } else if (!strcmp(args.mode, "serial")) {
+        runtime_assert(data.num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(global_stream_add_serial);
     } else {
         printf("Mode %s not implemented!", args.mode);
