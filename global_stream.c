@@ -231,7 +231,7 @@ int main(int argc, char** argv)
     long n = 1L << args.log2_num_elements;
     long mbytes = n * sizeof(long) / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
-    printf("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", n, mbytes, mbytes_per_nodelet);
+    printf("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", 3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
     fflush(stdout);
     data.num_threads = args.num_threads;
     global_stream_init(&data, n);
