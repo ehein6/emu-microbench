@@ -187,6 +187,25 @@ global_stream_add_serial_remote_spawn(global_stream_data * data)
     cilk_sync;
 }
 
+// serial_remote_spawn_shallow - same as serial_remote_spawn, but with only one level of spawning
+void
+global_stream_add_serial_remote_spawn_shallow(global_stream_data * data)
+{
+    long local_n = data->n / NODELETS();
+    long grain = data->n / data->num_threads;
+
+    for (long i = 0; i < NODELETS(); ++i) {
+        long * a = data->a[i];
+        long * b = data->b[i];
+        long * c = data->c[i];
+        for (long j = 0; j < local_n; j += grain) {
+            long begin = j;
+            long end = begin + grain <= local_n ? begin + grain : end;
+            cilk_spawn serial_remote_spawn_level2(begin, end, a, b, c);
+        }
+    }
+    cilk_sync;
+}
 
 #define RUN_BENCHMARK(X) \
 do {                                                        \
@@ -244,6 +263,9 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.mode, "serial_remote_spawn")) {
         runtime_assert(data.num_threads >= NODELETS(), "serial_remote_spawn mode will always use at least one thread per nodelet");
         RUN_BENCHMARK(global_stream_add_serial_remote_spawn);
+    } else if (!strcmp(args.mode, "serial_remote_spawn_shallow")) {
+        runtime_assert(data.num_threads >= NODELETS(), "serial_remote_spawn_shallow mode will always use at least one thread per nodelet");
+        RUN_BENCHMARK(global_stream_add_serial_remote_spawn_shallow);
     } else if (!strcmp(args.mode, "recursive_spawn")) {
         RUN_BENCHMARK(global_stream_add_recursive_spawn);
     } else if (!strcmp(args.mode, "serial")) {
