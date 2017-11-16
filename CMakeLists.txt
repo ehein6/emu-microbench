@@ -37,5 +37,5 @@ add_executable(global_stream global_stream.c timer.c timer.h recursive_spawn.h)
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
     enable_language(CXX)
-    add_executable(local_stream_cxx local_stream.cc timer.c timer.h recursive_spawn.h)
+    add_executable(local_stream_cxx local_stream.cc timer.c timer.h spawn_templates.h)
 endif()
