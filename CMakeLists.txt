@@ -25,10 +25,17 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
 else()
     # Enable Cilk
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus -std=c++11 -Wall")
     link_libraries(cilkrts)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+
 endif()
 
 
 add_executable(local_stream local_stream.c timer.c timer.h recursive_spawn.h)
 add_executable(global_stream global_stream.c timer.c timer.h recursive_spawn.h)
+
+
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
+    enable_language(CXX)
+    add_executable(local_stream_cxx local_stream.cc timer.c timer.h recursive_spawn.h)
+endif()
