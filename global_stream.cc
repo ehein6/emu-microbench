@@ -63,7 +63,8 @@ struct global_stream
     long n;
     long num_threads;
 
-    global_stream(long n) : a(n), b(n), c(n), n(n)
+    global_stream(long n, long num_threads)
+    : a(n), b(n), c(n), n(n), num_threads(num_threads)
     {
     }
 
@@ -154,8 +155,7 @@ int main(int argc, char** argv)
     fflush(stdout);
 
     // Create the benchmark struct with replicated storage
-    auto * benchmark = new mirrored<global_stream>(n);
-    benchmark->num_threads = args.num_threads;
+    auto * benchmark = new mirrored<global_stream>(n, args.num_threads);
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
 
     if (!strcmp(args.mode, "cilk_for")) {
