@@ -6,7 +6,7 @@
 template <typename T>
 struct mirrored : public T
 {
-    // Wrapper constructor to copy-construct T at each nodelet after running the requested constructor
+    // Wrapper constructor to copy T to each nodelet after running the requested constructor
     template<typename... Args>
     explicit mirrored (Args&&... args)
     // Call T's constructor with forwarded args
@@ -17,8 +17,8 @@ struct mirrored : public T
         // Replicate to each remote nodelet
         for (long i = 1; i < NODELETS(); ++i) {
             T * remote = static_cast<T*>(mw_get_nth(this, i));
-            // This calls the copy constructor to initialize remote from local
-            new(remote) T(*local);
+            // Copy local to remote
+            memcpy(remote, local, sizeof(T));
         }
     }
 
