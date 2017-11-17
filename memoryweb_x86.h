@@ -6,10 +6,29 @@ extern "C" {
 
 // Mimic memoryweb behavior on x86
 // TODO eventually move this all to its own header file
-#define NODELETS() (8)
+#define NODE_ID() (0)
+#define NODELETS() (1)
 #define replicated
 #define PRIORITY(X) (63-__builtin_clzl(X))
 #define noinline __attribute__ ((noinline))
+
+static inline void *
+mw_get_nth(void * repl_addr, long n) {
+    (void)n;
+    return repl_addr;
+}
+
+static inline void *
+mw_get_localto(void * repl_addr, void * localpointer) {
+    (void)localpointer;
+    return repl_addr;
+}
+
+static inline void *
+mw_mallocrepl(size_t sz)
+{
+    return malloc(sz);
+}
 
 static inline void *
 mw_malloc2d(size_t nelem, size_t sz)
