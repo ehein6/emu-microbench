@@ -19,6 +19,42 @@ extern "C" {
 #include "memoryweb_x86.h"
 #endif
 
+#include <utility>
+
+template <typename T>
+struct mirrored : public T
+{
+    // Wrapper constructor to copy-construct T at each nodelet after running the requested constructor
+    template<typename... Args>
+    explicit mirrored (Args&&... args)
+    // Call T's constructor with forwarded args
+    : T(std::forward<Args>(args)...)
+    {
+        // Get pointer to constructed T
+        T* local = static_cast<T*>(mw_get_nth(this, 0));
+        // Replicate to each remote nodelet
+        for (long i = 1; i < NODELETS(); ++i) {
+            T * remote = static_cast<T*>(mw_get_nth(this, i));
+            // This calls the copy constructor to initialize remote from local
+            new(remote) T(*local);
+        }
+    }
+
+    // Overrides default new to always allocate replicated storage for instances of this class
+    static void *
+    operator new(std::size_t sz)
+    {
+        return mw_mallocrepl(sz);
+    }
+
+    // Overrides default delete to safely free replicated storage
+    static void
+    operator delete(void * ptr)
+    {
+        mw_free(ptr);
+    }
+};
+
 struct global_stream
 {
     emu_2d_array<long> a;
@@ -29,9 +65,7 @@ struct global_stream
 
     global_stream(long n) : a(n), b(n), c(n), n(n)
     {
-        // TODO replicate pointers to all other nodelets
     }
-
 
     // serial - just a regular for loop
     void
@@ -79,9 +113,9 @@ struct global_stream
 #define RUN_BENCHMARK(X) \
 do {                                                        \
     timer_start();                                          \
-    benchmark. X ();                                         \
+    benchmark-> X ();                                         \
     long ticks = timer_stop();                              \
-    double bw = timer_calc_bandwidth(ticks, benchmark.n * sizeof(long) * 3); \
+    double bw = timer_calc_bandwidth(ticks, benchmark->n * sizeof(long) * 3); \
     timer_print_bandwidth( #X , bw);                        \
 } while (0)
 
@@ -92,7 +126,6 @@ runtime_assert(bool condition, const char* message) {
         exit(1);
     }
 }
-
 
 int main(int argc, char** argv)
 {
@@ -119,8 +152,10 @@ int main(int argc, char** argv)
     long mbytes_per_nodelet = mbytes / NODELETS();
     printf("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", 3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
     fflush(stdout);
-    global_stream benchmark(n);
-    benchmark.num_threads = args.num_threads;
+
+    // Create the benchmark struct with replicated storage
+    auto * benchmark = new mirrored<global_stream>(n);
+    benchmark->num_threads = args.num_threads;
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
 
     if (!strcmp(args.mode, "cilk_for")) {
@@ -128,22 +163,23 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.mode, "serial_spawn")) {
         RUN_BENCHMARK(add_serial_spawn);
      } else if (!strcmp(args.mode, "serial_remote_spawn")) {
-         runtime_assert(benchmark.num_threads >= NODELETS(), "serial_remote_spawn mode will always use at least one thread per nodelet");
+         runtime_assert(benchmark->num_threads >= NODELETS(), "serial_remote_spawn mode will always use at least one thread per nodelet");
          RUN_BENCHMARK(add_serial_remote_spawn);
     // } else if (!strcmp(args.mode, "serial_remote_spawn_shallow")) {
-    //     runtime_assert(benchmark.num_threads >= NODELETS(), "serial_remote_spawn_shallow mode will always use at least one thread per nodelet");
+    //     runtime_assert(benchmark->num_threads >= NODELETS(), "serial_remote_spawn_shallow mode will always use at least one thread per nodelet");
     //     RUN_BENCHMARK(global_stream_add_serial_remote_spawn_shallow);
     } else if (!strcmp(args.mode, "recursive_spawn")) {
         RUN_BENCHMARK(add_recursive_spawn);
     // } else if (!strcmp(args.mode, "recursive_remote_spawn")) {
-    //     runtime_assert(benchmark.num_threads >= NODELETS(), "recursive_remote_spawn mode will always use at least one thread per nodelet");
+    //     runtime_assert(benchmark->num_threads >= NODELETS(), "recursive_remote_spawn mode will always use at least one thread per nodelet");
     //     RUN_BENCHMARK(global_stream_add_recursive_remote_spawn);
     } else if (!strcmp(args.mode, "serial")) {
-        runtime_assert(benchmark.num_threads == 1, "serial mode can only use one thread");
+        runtime_assert(benchmark->num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(add_serial);
     } else {
         printf("Mode %s not implemented!", args.mode);
     }
 
+    delete benchmark;
     return 0;
 }
