@@ -85,7 +85,7 @@ local_stream_add_serial_spawn(local_stream_data * data)
     long grain = data->n / data->num_threads;
     for (long i = 0; i < data->n; i += grain) {
         long begin = i;
-        long end = begin + grain <= data->n ? begin + grain : end;
+        long end = begin + grain <= data->n ? begin + grain : data->n;
         cilk_spawn recursive_spawn_add_worker(begin, end, data);
     }
     cilk_sync;
