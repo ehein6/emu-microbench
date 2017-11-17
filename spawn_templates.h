@@ -1,13 +1,17 @@
+#pragma once
+
 template<typename F>
 void
 local_serial_spawn(long low, long high, long grain, F worker)
 {
+    // Iterate through the range one grain at a time
     for (long i = low; i < high; i += grain) {
         long begin = i;
+        // The last chunk might not be a full grain if it doesn't divide evenly
         long end = begin + grain <= high ? begin + grain : high;
-        cilk_spawn [=](){ for (long i = begin; i < end; ++i) { worker(i); }}();
+        // Spawn a thread to deal with this chunk
+        cilk_spawn [=](){ for (long j = begin; j < end; ++j) { worker(j); }}();
     }
-    cilk_sync;
 }
 
 template<typename F>
