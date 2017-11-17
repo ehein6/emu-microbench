@@ -10,6 +10,7 @@ extern "C" {
 #endif
 }
 #include <new>
+#include <type_traits>
 
 template<typename T>
 class emu_2d_array {
@@ -26,31 +27,36 @@ public:
         // Allocate 2D array
         void * raw = mw_malloc2d(NODELETS(), sizeof(T) * block_size);
         data = reinterpret_cast<T**>(raw);
-        // Call constructor on each element
+        // Call constructor on each element if required
         // TODO do this with parallel macro
-        // TODO skip this step if T's default constructor is trivial
-//        for (size_t i = 0; i < NODELETS(); ++i) {
-//            for (size_t j = 0; j < block_size; ++j) {
-//                new (&data[i][j]) T();
-//            }
-//        }
+        if (!std::is_trivially_default_constructible<T>::value) {
+            for (size_t i = 0; i < NODELETS(); ++i) {
+                for (size_t j = 0; j < block_size; ++j) {
+                    new (&data[i][j]) T();
+                }
+            }
+        }
 
     }
     ~emu_2d_array()
     {
-
-        // Call destructor on each element
+        // Call destructor on each element if required
         // TODO do this with parallel macro
-        // TODO skip this step if T's destructor is trivial
-//        for (size_t i = 0; i < NODELETS(); ++i) {
-//            for (size_t j = 0; j < block_size; ++j) {
-//                data[i][j].~T();
-//            }
-//        }
+        if (!std::is_trivially_destructible<T>::value) {
+            for (size_t i = 0; i < NODELETS(); ++i) {
+                for (size_t j = 0; j < block_size; ++j) {
+                    data[i][j].~T();
+                }
+            }
+        }
 
         // Free 2D array
         mw_free(data);
     }
+
+    // TODO deleting copy constructor and assignment operator for now, we probably don't want to call these anyways
+    emu_2d_array(const emu_2d_array & other) = delete;
+    emu_2d_array& operator= (const emu_2d_array &other) = delete;
 
     T&
     operator[] (size_t i)
