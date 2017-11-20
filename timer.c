@@ -11,9 +11,7 @@
 long CLOCK()
 {
     struct timeval tp;
-    int i;
-
-    i = gettimeofday(&tp,NULL);
+    gettimeofday(&tp,NULL);
     double time_seconds = ( (double) tp.tv_sec + (double) tp.tv_usec * 1.e-6 );
     return time_seconds * CLOCK_RATE;
 }
