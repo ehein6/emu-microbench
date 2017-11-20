@@ -57,6 +57,8 @@ mw_free(void * ptr)
     free(ptr);
 }
 
+#define ATOMIC_ADDMS(PTR, VAL) __sync_fetch_and_add(PTR, VAL)
+
 #ifdef __cplusplus
 }
 #endif
