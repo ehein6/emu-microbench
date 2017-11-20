@@ -35,31 +35,31 @@ endif()
 add_executable(local_stream local_stream.c timer.c timer.h recursive_spawn.h)
 add_executable(global_stream global_stream.c timer.c timer.h recursive_spawn.h)
 
+set(ENABLE_CXX FALSE
+    CACHE BOOL "Build C++ benchmarks")
+
 # If C++ supported, build C++ benchmarks also
-if (CMAKE_CXX_COMPILER)
+if (${ENABLE_CXX})
     enable_language(CXX)
     # Use the C++11 standard
-    list(APPEND ${CMAKE_CXX_FLAGS} "-std=c++11")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
     # Turn warnings into errors
-    list(APPEND ${CMAKE_CXX_FLAGS} "-Wall -Werror")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
     # Enable Cilk
-    list(APPEND ${CMAKE_CXX_FLAGS} "-fcilkplus")
-
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus")
     # Disable some errant warnings caused by cilk_for
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-uninitialized -Wno-cilk-loop-control-var-modification")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-uninitialized")
+
+    # Include support libraries
+    include_directories(emu_cxx_utils)
 
     # Build C++ benchmarks
     add_executable(local_stream_cxx
         local_stream.cc
         timer.c timer.h
-        spawn_templates.h
     )
     add_executable(global_stream_cxx
         global_stream.cc
         timer.c timer.h
-        spawn_templates.h
-        mirrored.h
-        emu_2d_array.h
-        layout.c layout.h
     )
 endif()
