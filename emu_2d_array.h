@@ -30,11 +30,11 @@ public:
         // Call constructor on each element if required
         // TODO do this with parallel macro
         if (!std::is_trivially_default_constructible<T>::value) {
-            for (size_t i = 0; i < NODELETS(); ++i) {
-                for (size_t j = 0; j < block_size; ++j) {
-                    new (&data[i][j]) T();
-                }
-            }
+            long grain = 256;
+            // Call default constructor (placement-new) on each element using parallel apply
+            this->parallel_apply(grain, [this](size_t i){
+                new(&this->operator[](i)) T();
+            });
         }
 
     }
@@ -43,11 +43,10 @@ public:
         // Call destructor on each element if required
         // TODO do this with parallel macro
         if (!std::is_trivially_destructible<T>::value) {
-            for (size_t i = 0; i < NODELETS(); ++i) {
-                for (size_t j = 0; j < block_size; ++j) {
-                    data[i][j].~T();
-                }
-            }
+            long grain = 256;
+            this->parallel_apply(grain, [this](size_t i){
+                this->operator[](i).~T();
+            });
         }
 
         // Free 2D array
