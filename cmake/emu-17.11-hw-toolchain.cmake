@@ -8,7 +8,6 @@ else()
 endif()
 
 set(CMAKE_C_COMPILER "${LLVM_CILK_HOME}/emu-cc-hw.sh")
-set(CMAKE_CXX_COMPILER "${LLVM_CILK_HOME}/emu-cc-hw.sh")
 
 set(MEMWEB_INSTALL "${LLVM_CILK_HOME}/memoryweb-libraries/memoryweb/install")
 set(LIBC_INSTALL "${LLVM_CILK_HOME}/memoryweb-libraries/musl/install")

@@ -8,7 +8,6 @@ else()
 endif()
 
 set(CMAKE_C_COMPILER "${LLVM_CILK_HOME}/bin/emu-cc.sh")
-set(CMAKE_CXX_COMPILER "${LLVM_CILK_HOME}/bin/emu-cc.sh")
 
 # where is the target environment
 SET(CMAKE_FIND_ROOT_PATH ${LLVM_CILK_HOME}/gossamer64)
