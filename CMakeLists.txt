@@ -38,6 +38,10 @@ add_executable(global_stream global_stream.c timer.c timer.h recursive_spawn.h)
 set(ENABLE_CXX FALSE
     CACHE BOOL "Build C++ benchmarks")
 
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
+    set(ENABLE_CXX TRUE)
+endif()
+
 # If C++ supported, build C++ benchmarks also
 if (${ENABLE_CXX})
     enable_language(CXX)
