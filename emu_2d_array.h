@@ -64,6 +64,13 @@ public:
         return data[i >> PRIORITY(block_size)][i&(block_size-1)];
     }
 
+    const T&
+    operator[] (size_t i) const
+    {
+        // data[i / block_size][i % block_size]
+        return data[i >> PRIORITY(block_size)][i&(block_size-1)];
+    }
+
     // Apply a function to each element of the array in parallel
     template <typename F>
     void
