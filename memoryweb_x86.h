@@ -10,6 +10,7 @@ extern "C" {
 #define NODELETS() (1)
 #define replicated
 #define PRIORITY(X) (63-__builtin_clzl(X))
+#define MIGRATE(X)
 #define noinline __attribute__ ((noinline))
 
 static inline void *

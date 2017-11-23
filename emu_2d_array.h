@@ -71,10 +71,31 @@ public:
         return data[i >> PRIORITY(block_size)][i&(block_size-1)];
     }
 
+    size_t get_size() const { return n; }
+    size_t get_block_size() const { return block_size; }
+
     // Apply a function to each element of the array in parallel
     template <typename F>
     void
     parallel_apply(long grain, F func)
+    {
+        // Spawn a thread at each nodelet
+        for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
+            long begin = nodelet_id * block_size;
+            long end = (nodelet_id+1) * block_size;
+
+            cilk_spawn [=](T * hint) {
+                // Unused pointer parameter makes spawn occur at remote nodelet
+                (void)hint;
+                // Spawn threads to handle local elements
+                local_serial_spawn(begin, end, grain, func);
+            }(data[nodelet_id]);
+        }
+    }
+
+    template <typename F>
+    void
+    parallel_apply(long grain, F func) const
     {
         // Spawn a thread at each nodelet
         for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
