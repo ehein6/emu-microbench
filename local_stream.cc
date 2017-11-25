@@ -51,7 +51,7 @@ struct local_stream {
     void
     add_cilk_for()
     {
-        #pragma cilk grainsize = n / num_threads;
+        #pragma cilk grainsize = n / num_threads
         cilk_for (long i = 0; i < n; ++i) {
             c[i] = a[i] + b[i];
         }
