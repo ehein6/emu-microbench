@@ -110,7 +110,7 @@ int main(int argc, char** argv)
     } args;
 
     if (argc != 4) {
-        printf("Usage: %s mode num_elements num_threads\n", argv[0]);
+        printf("Usage: %s mode log2_num_elements num_threads\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
