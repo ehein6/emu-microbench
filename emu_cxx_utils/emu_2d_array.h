@@ -71,10 +71,11 @@ public:
         return data[i >> PRIORITY(block_size)][i&(block_size-1)];
     }
 
-    // Apply a function to each element of the array in parallel
+
+    // Apply a function to each element of the array in parallel, using serial spawn
     template <typename F>
     void
-    parallel_apply(long grain, F func)
+    parallel_apply_serial_spawn(long grain, F func)
     {
         // Spawn a thread at each nodelet
         for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
@@ -88,5 +89,40 @@ public:
                 local_serial_spawn(begin, end, grain, func);
             }(data[nodelet_id]);
         }
+    }
+private:
+    template <typename F>
+    void
+    recursive_spawn_at_nodelets(long low, long high, long grain, void * hint, F func)
+    {
+        for (;;) {
+            long count = high - low;
+            if (count == 1) break;
+            long mid = low + count / 2;
+            cilk_spawn recursive_spawn_at_nodelets(low, mid, grain, data[low], func);
+            low = mid;
+        }
+
+        long nodelet_id = low;
+        long begin = nodelet_id * block_size;
+        long end = (nodelet_id+1) * block_size;
+        local_recursive_spawn(begin, end, grain, func);
+    }
+
+public:
+    // Apply a function to each element of the array in parallel, using recursive spawn
+    template <typename F>
+    void
+    parallel_apply_recursive_spawn(long grain, F func)
+    {
+        recursive_spawn_at_nodelets(0, NODELETS(), grain, nullptr, func);
+    }
+
+    // Apply a function to each element of the array in parallel
+    template <typename F>
+    void
+    parallel_apply(long grain, F func)
+    {
+        parallel_apply_serial_spawn(grain, func);
     }
 };
