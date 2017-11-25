@@ -70,7 +70,15 @@ struct global_stream
     void
     add_serial_remote_spawn()
     {
-        c.parallel_apply(n/num_threads, [this](long i) {
+        c.parallel_apply_serial_spawn(n/num_threads, [this](long i) {
+            c[i] = a[i] + b[i];
+        });
+    }
+
+    void
+    add_recursive_remote_spawn()
+    {
+        c.parallel_apply_recursive_spawn(n/num_threads, [this](long i) {
             c[i] = a[i] + b[i];
         });
     }
@@ -102,7 +110,7 @@ int main(int argc, char** argv)
     } args;
 
     if (argc != 4) {
-        printf("Usage: %s mode num_elements num_threads\n", argv[0]);
+        printf("Usage: %s mode log2_num_elements num_threads\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
@@ -135,9 +143,9 @@ int main(int argc, char** argv)
     //     RUN_BENCHMARK(global_stream_add_serial_remote_spawn_shallow);
     } else if (!strcmp(args.mode, "recursive_spawn")) {
         RUN_BENCHMARK(add_recursive_spawn);
-    // } else if (!strcmp(args.mode, "recursive_remote_spawn")) {
-    //     runtime_assert(benchmark->num_threads >= NODELETS(), "recursive_remote_spawn mode will always use at least one thread per nodelet");
-    //     RUN_BENCHMARK(global_stream_add_recursive_remote_spawn);
+    } else if (!strcmp(args.mode, "recursive_remote_spawn")) {
+        runtime_assert(benchmark->num_threads >= NODELETS(), "recursive_remote_spawn mode will always use at least one thread per nodelet");
+        RUN_BENCHMARK(add_recursive_remote_spawn);
     } else if (!strcmp(args.mode, "serial")) {
         runtime_assert(benchmark->num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(add_serial);
