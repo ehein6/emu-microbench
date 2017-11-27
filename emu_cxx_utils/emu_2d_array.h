@@ -70,8 +70,17 @@ public:
         // data[i / block_size][i % block_size]
         return data[i >> PRIORITY(block_size)][i&(block_size-1)];
     }
-
-
+private:
+    template <typename F>
+    void
+    serial_spawn_at_nodelets(long low, long high, long grain, void * hint, F func)
+    {
+        // Unused pointer parameter makes spawn occur at remote nodelet
+        (void)hint;
+        // Spawn threads to handle local elements
+        local_serial_spawn(low, high, grain, func);
+    }
+public:
     // Apply a function to each element of the array in parallel, using serial spawn
     template <typename F>
     void
@@ -81,13 +90,7 @@ public:
         for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
             long begin = nodelet_id * block_size;
             long end = (nodelet_id+1) * block_size;
-
-            cilk_spawn [=](T * hint) {
-                // Unused pointer parameter makes spawn occur at remote nodelet
-                (void)hint;
-                // Spawn threads to handle local elements
-                local_serial_spawn(begin, end, grain, func);
-            }(data[nodelet_id]);
+            cilk_spawn serial_spawn_at_nodelets(begin, end, grain, data[nodelet_id], func);
         }
     }
 private:

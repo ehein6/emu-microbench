@@ -4,13 +4,19 @@ template<typename F>
 void
 local_serial_spawn(long low, long high, long grain, F worker)
 {
-    // Iterate through the range one grain at a time
-    for (long i = low; i < high; i += grain) {
-        long begin = i;
-        // The last chunk might not be a full grain if it doesn't divide evenly
-        long end = begin + grain <= high ? begin + grain : high;
-        // Spawn a thread to deal with this chunk
-        cilk_spawn [=](){ for (long j = begin; j < end; ++j) { worker(j); }}();
+    if (high - low > grain) {
+        // Iterate through the range one grain at a time
+        for (long i = low; i < high; i += grain) {
+            long begin = i;
+            // The last chunk might not be a full grain if it doesn't divide evenly
+            long end = begin + grain <= high ? begin + grain : high;
+            // Spawn a thread to deal with this chunk
+            cilk_spawn local_serial_spawn(begin, end, grain, worker);
+        }
+    } else {
+        for (long j = low; j < high; ++j) {
+            worker(j);
+        }
     }
 }
 
