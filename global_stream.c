@@ -101,7 +101,7 @@ global_stream_deinit(global_stream_data * data)
 void
 global_stream_add_serial(global_stream_data * data)
 {
-    long block_sz = sizeof(long) * data->n / NODELETS();
+    long block_sz = data->n / NODELETS();
     for (long i = 0; i < data->n; ++i) {
         INDEX(data->c, block_sz, i) = INDEX(data->a, block_sz, i) + INDEX(data->b, block_sz, i);
     }
@@ -111,7 +111,7 @@ global_stream_add_serial(global_stream_data * data)
 void
 global_stream_add_cilk_for(global_stream_data * data)
 {
-    long block_sz = sizeof(long) * data->n / NODELETS();
+    long block_sz = data->n / NODELETS();
     #pragma cilk grainsize = data->n / data->num_threads
     cilk_for (long i = 0; i < data->n; ++i) {
         INDEX(data->c, block_sz, i) = INDEX(data->a, block_sz, i) + INDEX(data->b, block_sz, i);
@@ -121,7 +121,7 @@ global_stream_add_cilk_for(global_stream_data * data)
 noinline void
 recursive_spawn_add_worker(long begin, long end, global_stream_data *data)
 {
-    long block_sz = sizeof(long) * data->n / NODELETS();
+    long block_sz = data->n / NODELETS();
     for (long i = begin; i < end; ++i) {
         INDEX(data->c, block_sz, i) = INDEX(data->a, block_sz, i) + INDEX(data->b, block_sz, i);
     }
