@@ -52,7 +52,7 @@ if (${ENABLE_CXX})
     # Enable Cilk
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus")
     # Disable some errant warnings caused by cilk_for
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-uninitialized")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-uninitialized -Wno-cilk-loop-control-var-modification")
 
     # Include support libraries
     include_directories(emu_cxx_utils)
