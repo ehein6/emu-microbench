@@ -46,3 +46,10 @@ local_recursive_spawn(long low, long high, long grain, F worker)
         worker(i);
     }
 }
+
+template <typename F>
+void
+local_spawn(long low, long high, long grain, F worker)
+{
+    local_serial_spawn(low, high, grain, worker);
+}

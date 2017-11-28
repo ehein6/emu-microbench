@@ -70,6 +70,10 @@ public:
         // data[i / block_size][i % block_size]
         return data[i >> PRIORITY(block_size)][i&(block_size-1)];
     }
+
+    size_t get_size() const { return n; }
+    size_t get_block_size() const { return block_size; }
+
 private:
     template <typename F>
     void
