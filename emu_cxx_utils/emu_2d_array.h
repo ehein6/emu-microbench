@@ -76,7 +76,7 @@ public:
 
 private:
     template <typename F>
-    void
+    static noinline void
     serial_spawn_at_nodelets(long low, long high, long grain, void * hint, F func)
     {
         // Unused pointer parameter makes spawn occur at remote nodelet
@@ -98,21 +98,27 @@ public:
         }
     }
 private:
+
+    // Emu will remote spawn a function if the first pointer argument points to a remote nodelet.
+    // In the case of a class method, `this` is always the first pointer argument.
+    // Instances of emu_2d_array are meant to be replicated, which means `this` will be a relative pointer that doesn't trigger a remote spawn.
+    // As a workaround, spawn a static method that accepts the `this` pointer as a parameter.
+    // The hint comes before the `this` pointer so remote spawn can work.
     template <typename F>
-    void
-    recursive_spawn_at_nodelets(long low, long high, long grain, void * hint, F func)
+    static noinline void
+    recursive_spawn_at_nodelets(long low, long high, long grain, void * hint, emu_2d_array<T>* self, F func)
     {
         for (;;) {
             long count = high - low;
             if (count == 1) break;
             long mid = low + count / 2;
-            cilk_spawn recursive_spawn_at_nodelets(low, mid, grain, data[low], func);
+            cilk_spawn recursive_spawn_at_nodelets(low, mid, grain, self->data[mid], self, func);
             low = mid;
         }
 
         long nodelet_id = low;
-        long begin = nodelet_id * block_size;
-        long end = (nodelet_id+1) * block_size;
+        long begin = nodelet_id * self->block_size;
+        long end = (nodelet_id+1) * self->block_size;
         local_recursive_spawn(begin, end, grain, func);
     }
 
@@ -122,7 +128,7 @@ public:
     void
     parallel_apply_recursive_spawn(long grain, F func)
     {
-        recursive_spawn_at_nodelets(0, NODELETS(), grain, nullptr, func);
+        recursive_spawn_at_nodelets(0, NODELETS(), grain, nullptr, this, func);
     }
 
     // Apply a function to each element of the array in parallel
