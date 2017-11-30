@@ -29,6 +29,6 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
 endif()
 
-
 add_executable(local_stream local_stream.c timer.c timer.h recursive_spawn.h)
 add_executable(global_stream global_stream.c timer.c timer.h recursive_spawn.h)
+add_executable(pointer_chase pointer_chase.c timer.c timer.h)
