@@ -179,7 +179,7 @@ do {                                                        \
     timer_start();                                          \
     X (&data);                                              \
     long ticks = timer_stop();                              \
-    double bw = timer_calc_bandwidth(ticks, data.n * sizeof(long) * 3); \
+    double bw = timer_calc_bandwidth(ticks, data.n * sizeof(node*)); \
     timer_print_bandwidth( #X , bw);                        \
 } while (0)
 
