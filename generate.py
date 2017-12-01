@@ -10,8 +10,8 @@ def mkdir(path):
 
 
 def main():
-    emusim = "emusim.x"
-    outdir = "global_stream_cxx"
+    emusim = "emusim.HW.x"
+    outdir = "pointer_chase"
     template = textwrap.dedent("""\
     #!/bin/bash
     #SBATCH --job-name={name}
@@ -23,7 +23,7 @@ def main():
     --output_instruction_count \\
     -o {outdir}/results/{name} \\
     -- \\
-    build-cxx/{bench}.mwx {mode} {num_elements} {num_threads}
+    build-hw/{bench}.mwx {mode} {num_elements} {num_threads}
     """)
 
     mkdir("{outdir}/scripts/".format(**locals()))
@@ -31,13 +31,13 @@ def main():
 
     for bench, mode, num_elements, num_threads in itertools.product(
         # bench
-        ["global_stream_cxx"],
+        ["pointer_chase"],
         # modes
-        ["serial_spawn", "recursive_spawn", "recursive_remote_spawn", "serial_remote_spawn"],
+        ["unshuffled", "shuffled"],
         # log2_num_elements
-        [25],
+        [23],
         # num_threads
-        [int(2**i) for i in range(6, 8 + 6 + 1)]):
+        [int(2**i) for i in range(0, 8 + 6 + 1)]):
 
         # Only generate one serial job
         if mode == "serial":
