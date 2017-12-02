@@ -93,14 +93,14 @@ void shuffle(long *array, size_t n)
 }
 
 void
-pointer_chase_data_init(pointer_chase_data * data, long n, long num_threads, const char* mode)
+pointer_chase_data_init(pointer_chase_data * data, long n, long num_threads, const char* sort_mode)
 {
-    if (!strcmp(mode, "shuffled")) {
+    if (!strcmp(sort_mode, "shuffled")) {
         data->do_shuffle = true;
-    } else if (!strcmp(mode, "unshuffled")) {
+    } else if (!strcmp(sort_mode, "ordered")) {
         data->do_shuffle = false;
     } else {
-        printf("Mode %s not implemented!\n", mode); fflush(stdout);
+        printf("Mode %s not implemented!\n", sort_mode); fflush(stdout);
         exit(1);
     }
 
@@ -166,12 +166,33 @@ chase_pointers(node * head)
 }
 
 void
-pointer_chase_begin(pointer_chase_data * data)
+pointer_chase_serial_spawn(pointer_chase_data * data)
 {
     for (long i = 0; i < data->num_threads; ++i) {
         cilk_spawn chase_pointers(data->heads[i]);
     }
     cilk_sync;
+}
+
+void
+pointer_chase_recursive_spawn_worker(long low, long high, pointer_chase_data * data)
+{
+    for (;;) {
+        long count = high - low;
+        if (count == 1) break;
+        long mid = low + count / 2;
+        cilk_spawn pointer_chase_recursive_spawn_worker(low, mid, data);
+        low = mid;
+    }
+
+    /* Recursive base case: call worker function */
+    chase_pointers(data->heads[low]);
+}
+
+void
+pointer_chase_recursive_spawn(pointer_chase_data * data)
+{
+    pointer_chase_recursive_spawn_worker(0, data->num_threads, data);
 }
 
 #define RUN_BENCHMARK(X) \
@@ -195,17 +216,19 @@ int main(int argc, char** argv)
 {
     struct {
         const char* mode;
+        const char* sort_mode;
         long log2_num_elements;
         long num_threads;
     } args;
 
-    if (argc != 4) {
-        printf("Usage: %s mode num_elements num_threads\n", argv[0]);
+    if (argc != 5) {
+        printf("Usage: %s mode sort_mode num_elements num_threads\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
-        args.log2_num_elements = atol(argv[2]);
-        args.num_threads = atol(argv[3]);
+        args.sort_mode = argv[2];
+        args.log2_num_elements = atol(argv[3]);
+        args.num_threads = atol(argv[4]);
 
         if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
         if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
@@ -215,12 +238,19 @@ int main(int argc, char** argv)
     long mbytes = n * sizeof(long) / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
     printf("Initializing %s array with %li elements (%li MiB total, %li MiB per nodelet)\n",
-        args.mode, n, mbytes, mbytes_per_nodelet);
+        args.sort_mode, n, mbytes, mbytes_per_nodelet);
     fflush(stdout);
-    pointer_chase_data_init(&data, n, args.num_threads, args.mode);
-    printf("Chasing pointers with %li threads...\n", args.num_threads); fflush(stdout);
+    pointer_chase_data_init(&data, n, args.num_threads, args.sort_mode);
+    printf("Launching %s with %li threads...\n", args.mode, args.num_threads); fflush(stdout);
 
-    RUN_BENCHMARK(pointer_chase_begin);
+    if (!strcmp(args.mode, "serial_spawn")) {
+        RUN_BENCHMARK(pointer_chase_serial_spawn);
+    } else if (!strcmp(args.mode, "recursive_spawn")) {
+        RUN_BENCHMARK(pointer_chase_recursive_spawn);
+    } else {
+        printf("Mode %s not implemented!", args.mode);
+        exit(1);
+    }
 
     pointer_chase_data_deinit(&data);
     return 0;
