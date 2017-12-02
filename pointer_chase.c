@@ -162,7 +162,7 @@ chase_pointers(node * head)
     for (node * p = head; p->next != NULL; p = p->next) {
         total += 1;
     }
-//    printf("Finished traversing %li nodes\n", total); fflush(stdout);
+    printf("Finished traversing %li nodes\n", total); fflush(stdout);
 }
 
 void
