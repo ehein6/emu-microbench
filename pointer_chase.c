@@ -244,7 +244,7 @@ runtime_assert(bool condition, const char* message) {
 }
 
 typedef struct pointer_chase_args {
-    const char* mode;
+    const char* spawn_mode;
     const char* sort_mode;
     long log2_num_elements;
     long payload_size;
@@ -256,10 +256,10 @@ parse_args(int argc, char** argv)
 {
     pointer_chase_args args;
     if (argc != 6) {
-        printf("Usage: %s mode sort_mode log2_num_elements payload_size num_threads\n", argv[0]);
+        printf("Usage: %s spawn_mode sort_mode log2_num_elements payload_size num_threads\n", argv[0]);
         exit(1);
     } else {
-        args.mode = argv[1];
+        args.spawn_mode = argv[1];
         args.sort_mode = argv[2];
         args.log2_num_elements = atol(argv[3]);
         args.payload_size = atol(argv[4]);
@@ -298,14 +298,14 @@ int main(int argc, char** argv)
     fflush(stdout);
     pointer_chase_data_init(&data,
         n, args.payload_size, args.num_threads, sort_mode);
-    printf("Launching %s with %li threads...\n", args.mode, args.num_threads); fflush(stdout);
+    printf("Launching %s with %li threads...\n", args.spawn_mode, args.num_threads); fflush(stdout);
 
-    if (!strcmp(args.mode, "serial_spawn")) {
+    if (!strcmp(args.spawn_mode, "serial_spawn")) {
         RUN_BENCHMARK(pointer_chase_serial_spawn);
-    } else if (!strcmp(args.mode, "recursive_spawn")) {
+    } else if (!strcmp(args.spawn_mode, "recursive_spawn")) {
         RUN_BENCHMARK(pointer_chase_recursive_spawn);
     } else {
-        printf("Mode %s not implemented!", args.mode);
+        printf("Spawn mode %s not implemented!", args.spawn_mode);
         exit(1);
     }
 
