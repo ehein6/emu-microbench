@@ -56,11 +56,15 @@ typedef struct node {
     long payload[0];
 } node;
 
+enum sort_mode {
+    STRIPED, ORDERED, SHUFFLED
+} sort_mode;
+
 typedef struct pointer_chase_data {
     long n;
     long payload_size;
     long num_threads;
-    bool do_shuffle;
+    enum sort_mode sort_mode;
     // One pointer per thread
     node ** heads;
     // Actual array pointer
@@ -92,18 +96,21 @@ void shuffle(long *array, size_t n)
 }
 
 void
-pointer_chase_data_init(pointer_chase_data * data, long n, long payload_size, long num_threads, bool do_shuffle)
+pointer_chase_data_init(pointer_chase_data * data, long n, long payload_size, long num_threads, enum sort_mode sort_mode)
 {
     data->n = n;
     data->payload_size = payload_size;
     data->num_threads = num_threads;
-    data->do_shuffle = do_shuffle;
+    data->sort_mode = sort_mode;
     // Allocate N nodes, striped across nodelets
-    data->pool = mw_malloc2d(n, sizeof(node) + payload_size * sizeof(long));              assert(data->pool);
+    data->pool = mw_malloc2d(n, sizeof(node) + payload_size * sizeof(long));
+    assert(data->pool);
     // Store a pointer for this thread's head of the list
-    data->heads = (node**)mw_malloc1dlong(num_threads);     assert(data->heads);
+    data->heads = (node**)mw_malloc1dlong(num_threads);
+    assert(data->heads);
     // Make an array with entries 1 through n
-    data->indices = malloc(n * sizeof(long));               assert(data->indices);
+    data->indices = malloc(n * sizeof(long));
+    assert(data->indices);
 
 #ifdef __le64__
     // Replicate pointers to all other nodelets
@@ -114,12 +121,37 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long payload_size, lo
     }
 #endif
 
-    // Initialize indices array with 0 to n-1
-    for (long i = 0; i < n; ++i) {
-        data->indices[i] = i;
+    switch (data->sort_mode) {
+        case STRIPED: {
+            // Initialize indices array with 0 to n-1
+            // Due to malloc2D address mode, this will result in a striped layout
+            for (long i = 0; i < n; ++i) {
+                data->indices[i] = i;
+            }
+        }
+        break;
+        case ORDERED: {
+            // Initialize with striped index pattern (i.e. 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15)
+            // This will transform malloc2D address mode to sequential
+            long i = 0;
+            for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
+                for (long k = 0; k < n; k += NODELETS()) {
+                    data->indices[i++] = k + nodelet_id;
+                }
+            }
+            assert(i == n);
+        }
+        break;
+        case SHUFFLED: {
+            // Initialize indices array with 0 to n-1
+            for (long i = 0; i < n; ++i) {
+                data->indices[i] = i;
+            }
+            // Randomly shuffle it
+            shuffle(data->indices, n);
+        }
+        break;
     }
-    // Randomly shuffle it
-    if (data->do_shuffle) { shuffle(data->indices, n); }
 
     for (long i = 0; i < data->n; ++i) {
         // String pointers together according to the index
@@ -245,11 +277,13 @@ int main(int argc, char** argv)
 
     pointer_chase_args args = parse_args(argc, argv);
 
-    bool do_shuffle;
+    enum sort_mode sort_mode;
     if (!strcmp(args.sort_mode, "shuffled")) {
-        do_shuffle = true;
+        sort_mode = SHUFFLED;
     } else if (!strcmp(args.sort_mode, "ordered")) {
-        do_shuffle = false;
+        sort_mode = ORDERED;
+    } else if (!strcmp(args.sort_mode, "striped")) {
+        sort_mode = STRIPED;
     } else {
         printf("Sort mode %s not implemented!\n", args.sort_mode); fflush(stdout);
         exit(1);
@@ -263,7 +297,7 @@ int main(int argc, char** argv)
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
     fflush(stdout);
     pointer_chase_data_init(&data,
-        n, args.payload_size, args.num_threads, do_shuffle);
+        n, args.payload_size, args.num_threads, sort_mode);
     printf("Launching %s with %li threads...\n", args.mode, args.num_threads); fflush(stdout);
 
     if (!strcmp(args.mode, "serial_spawn")) {
