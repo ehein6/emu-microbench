@@ -51,7 +51,7 @@ mw_free(void * ptr)
 
 #endif
 
-#define PAYLOAD_SIZE 1
+#define PAYLOAD_SIZE 7
 
 typedef struct node {
     struct node * next;
@@ -128,11 +128,14 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long num_threads, con
     }
     // Randomly shuffle it
     if (data->do_shuffle) { shuffle(data->indices, n); }
-    // String pointers together according to the index
+
     for (long i = 0; i < data->n; ++i) {
+        // String pointers together according to the index
         long a = data->indices[i];
         long b = data->indices[(i + 1) % data->n];
         data->pool[a]->next = data->pool[b];
+        // Initialize payload
+        for (long j = 0; j < PAYLOAD_SIZE; ++j) { data->pool[a]->payload[j] = 1; }
     }
 
     // Chop up the list so there is one chunk per thread
@@ -158,11 +161,15 @@ pointer_chase_data_deinit(pointer_chase_data * data)
 noinline void
 chase_pointers(node * head)
 {
-    long total = 1;
-    for (node * p = head; p->next != NULL; p = p->next) {
-        total += 1;
+    long num_nodes = 0;
+    long sum = 0;
+    for (node * p = head; p != NULL; p = p->next) {
+        num_nodes += 1;
+        for (long i = 0; i < PAYLOAD_SIZE; ++i) {
+            sum += p->payload[i];
+        }
     }
-    printf("Finished traversing %li nodes\n", total); fflush(stdout);
+    printf("Finished traversing %li payloads: sum = %li\n", num_nodes, sum); fflush(stdout);
 }
 
 void
@@ -200,7 +207,7 @@ do {                                                        \
     timer_start();                                          \
     X (&data);                                              \
     long ticks = timer_stop();                              \
-    double bw = timer_calc_bandwidth(ticks, data.n * sizeof(node*)); \
+    double bw = timer_calc_bandwidth(ticks, bytes);         \
     timer_print_bandwidth( #X , bw);                        \
 } while (0)
 
@@ -235,7 +242,8 @@ int main(int argc, char** argv)
     }
 
     long n = 1L << args.log2_num_elements;
-    long mbytes = n * sizeof(long) / (1024*1024);
+    long bytes = n * sizeof(node);
+    long mbytes = bytes / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
     printf("Initializing %s array with %li elements (%li MiB total, %li MiB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
