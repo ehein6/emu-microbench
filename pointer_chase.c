@@ -51,15 +51,14 @@ mw_free(void * ptr)
 
 #endif
 
-#define PAYLOAD_SIZE 7
-
 typedef struct node {
     struct node * next;
-    long payload[PAYLOAD_SIZE];
+    long payload[0];
 } node;
 
 typedef struct pointer_chase_data {
     long n;
+    long payload_size;
     long num_threads;
     bool do_shuffle;
     // One pointer per thread
@@ -93,21 +92,14 @@ void shuffle(long *array, size_t n)
 }
 
 void
-pointer_chase_data_init(pointer_chase_data * data, long n, long num_threads, const char* sort_mode)
+pointer_chase_data_init(pointer_chase_data * data, long n, long payload_size, long num_threads, bool do_shuffle)
 {
-    if (!strcmp(sort_mode, "shuffled")) {
-        data->do_shuffle = true;
-    } else if (!strcmp(sort_mode, "ordered")) {
-        data->do_shuffle = false;
-    } else {
-        printf("Mode %s not implemented!\n", sort_mode); fflush(stdout);
-        exit(1);
-    }
-
     data->n = n;
+    data->payload_size = payload_size;
     data->num_threads = num_threads;
+    data->do_shuffle = do_shuffle;
     // Allocate N nodes, striped across nodelets
-    data->pool = mw_malloc2d(n, sizeof(node));              assert(data->pool);
+    data->pool = mw_malloc2d(n, sizeof(node) + payload_size * sizeof(long));              assert(data->pool);
     // Store a pointer for this thread's head of the list
     data->heads = (node**)mw_malloc1dlong(num_threads);     assert(data->heads);
     // Make an array with entries 1 through n
@@ -135,7 +127,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long num_threads, con
         long b = data->indices[(i + 1) % data->n];
         data->pool[a]->next = data->pool[b];
         // Initialize payload
-        for (long j = 0; j < PAYLOAD_SIZE; ++j) { data->pool[a]->payload[j] = 1; }
+        for (long j = 0; j < payload_size; ++j) { data->pool[a]->payload[j] = 1; }
     }
 
     // Chop up the list so there is one chunk per thread
@@ -159,24 +151,24 @@ pointer_chase_data_deinit(pointer_chase_data * data)
 }
 
 noinline void
-chase_pointers(node * head)
+chase_pointers(node * head, long payload_size)
 {
     long num_nodes = 0;
     long sum = 0;
     for (node * p = head; p != NULL; p = p->next) {
         num_nodes += 1;
-        for (long i = 0; i < PAYLOAD_SIZE; ++i) {
+        for (long i = 0; i < payload_size; ++i) {
             sum += p->payload[i];
         }
     }
-    printf("Finished traversing %li payloads: sum = %li\n", num_nodes, sum); fflush(stdout);
+    printf("Finished traversing %li nodes: sum = %li\n", num_nodes, sum); fflush(stdout);
 }
 
 void
 pointer_chase_serial_spawn(pointer_chase_data * data)
 {
     for (long i = 0; i < data->num_threads; ++i) {
-        cilk_spawn chase_pointers(data->heads[i]);
+        cilk_spawn chase_pointers(data->heads[i], data->payload_size);
     }
     cilk_sync;
 }
@@ -193,7 +185,7 @@ pointer_chase_recursive_spawn_worker(long low, long high, pointer_chase_data * d
     }
 
     /* Recursive base case: call worker function */
-    chase_pointers(data->heads[low]);
+    chase_pointers(data->heads[low], data->payload_size);
 }
 
 void
@@ -219,26 +211,48 @@ runtime_assert(bool condition, const char* message) {
     }
 }
 
-int main(int argc, char** argv)
-{
-    struct {
-        const char* mode;
-        const char* sort_mode;
-        long log2_num_elements;
-        long num_threads;
-    } args;
+typedef struct pointer_chase_args {
+    const char* mode;
+    const char* sort_mode;
+    long log2_num_elements;
+    long payload_size;
+    long num_threads;
+} pointer_chase_args;
 
-    if (argc != 5) {
-        printf("Usage: %s mode sort_mode num_elements num_threads\n", argv[0]);
+pointer_chase_args
+parse_args(int argc, char** argv)
+{
+    pointer_chase_args args;
+    if (argc != 6) {
+        printf("Usage: %s mode sort_mode log2_num_elements payload_size num_threads\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
         args.sort_mode = argv[2];
         args.log2_num_elements = atol(argv[3]);
-        args.num_threads = atol(argv[4]);
+        args.payload_size = atol(argv[4]);
+        args.num_threads = atol(argv[5]);
 
         if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
+        if (args.payload_size <= 0) { printf("payload_size must be > 0"); exit(1); }
         if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
+    }
+    return args;
+}
+
+int main(int argc, char** argv)
+{
+
+    pointer_chase_args args = parse_args(argc, argv);
+
+    bool do_shuffle;
+    if (!strcmp(args.sort_mode, "shuffled")) {
+        do_shuffle = true;
+    } else if (!strcmp(args.sort_mode, "ordered")) {
+        do_shuffle = false;
+    } else {
+        printf("Sort mode %s not implemented!\n", args.sort_mode); fflush(stdout);
+        exit(1);
     }
 
     long n = 1L << args.log2_num_elements;
@@ -248,7 +262,8 @@ int main(int argc, char** argv)
     printf("Initializing %s array with %li elements (%li MiB total, %li MiB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
     fflush(stdout);
-    pointer_chase_data_init(&data, n, args.num_threads, args.sort_mode);
+    pointer_chase_data_init(&data,
+        n, args.payload_size, args.num_threads, do_shuffle);
     printf("Launching %s with %li threads...\n", args.mode, args.num_threads); fflush(stdout);
 
     if (!strcmp(args.mode, "serial_spawn")) {
