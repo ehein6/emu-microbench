@@ -226,6 +226,27 @@ pointer_chase_recursive_spawn(pointer_chase_data * data)
     pointer_chase_recursive_spawn_worker(0, data->num_threads, data);
 }
 
+noinline void
+serial_spawn_local(void * hint, pointer_chase_data * data)
+{
+    (void)hint;
+    // Spawn a thread for each list head located at this nodelet
+    // Using striped indexing to avoid migrations
+    for (long i = NODE_ID(); i < data->num_threads; i += NODELETS()) {
+        cilk_spawn chase_pointers(data->heads[i], data->payload_size);
+    }
+}
+
+void
+pointer_chase_serial_remote_spawn(pointer_chase_data * data)
+{
+    // Spawn a thread at each nodelet
+    for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id ) {
+        if (nodelet_id >= data->num_threads) { break; }
+        cilk_spawn serial_spawn_local(&data->heads[nodelet_id], data);
+    }
+}
+
 #define RUN_BENCHMARK(X) \
 do {                                                        \
     timer_start();                                          \
@@ -304,6 +325,8 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(pointer_chase_serial_spawn);
     } else if (!strcmp(args.spawn_mode, "recursive_spawn")) {
         RUN_BENCHMARK(pointer_chase_recursive_spawn);
+    } else if (!strcmp(args.spawn_mode, "serial_remote_spawn")) {
+        RUN_BENCHMARK(pointer_chase_serial_remote_spawn);
     } else {
         printf("Spawn mode %s not implemented!", args.spawn_mode);
         exit(1);
