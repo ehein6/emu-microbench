@@ -290,7 +290,7 @@ int main(int argc, char** argv)
     }
 
     long n = 1L << args.log2_num_elements;
-    long bytes = n * sizeof(node);
+    long bytes = n * (sizeof(node) + sizeof(long) * args.payload_size);
     long mbytes = bytes / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
     printf("Initializing %s array with %li elements (%li MiB total, %li MiB per nodelet)\n",
