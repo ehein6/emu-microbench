@@ -8,6 +8,7 @@
 
 #include "timer.h"
 #include "recursive_spawn.h"
+#include "emu_for_2d.h"
 
 #ifdef __le64__
 #include <memoryweb.h>
@@ -225,6 +226,26 @@ global_stream_add_recursive_remote_spawn(global_stream_data * data)
     recursive_remote_spawn_level1(0, NODELETS(), data->a[0], data);
 }
 
+void
+global_stream_add_emu_for_2d_worker(long begin, long end, void * arg1)
+{
+    global_stream_data * data = (global_stream_data *)arg1;
+    long block_sz = data->n / NODELETS();
+
+    for (long i = begin; i < end; ++i) {
+        INDEX(data->c, block_sz, i) = INDEX(data->a, block_sz, i) + INDEX(data->b, block_sz, i);
+    }
+}
+
+void
+global_stream_add_emu_for_2d(global_stream_data * data)
+{
+    emu_chunked_array_apply_v1(
+        (void**)data->a, data->n, data->n / data->num_threads,
+        data,
+        global_stream_add_emu_for_2d_worker);
+}
+
 // serial_remote_spawn_shallow - same as serial_remote_spawn, but with only one level of spawning
 void
 global_stream_add_serial_remote_spawn_shallow(global_stream_data * data)
@@ -309,6 +330,9 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.mode, "recursive_remote_spawn")) {
         runtime_assert(data.num_threads >= NODELETS(), "recursive_remote_spawn mode will always use at least one thread per nodelet");
         RUN_BENCHMARK(global_stream_add_recursive_remote_spawn);
+    } else if (!strcmp(args.mode, "emu_for_2d")) {
+        runtime_assert(data.num_threads >= NODELETS(), "emu_for_2d mode will always use at least one thread per nodelet");
+        RUN_BENCHMARK(global_stream_add_emu_for_2d);
     } else if (!strcmp(args.mode, "serial")) {
         runtime_assert(data.num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(global_stream_add_serial);
