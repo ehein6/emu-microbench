@@ -186,7 +186,7 @@ pointer_chase_data_deinit(pointer_chase_data * data)
 }
 
 noinline void
-chase_pointers(node * head, long block_size)
+chase_pointers(node * head)
 {
     long num_nodes = 0;
     long sum = 0;
@@ -194,14 +194,14 @@ chase_pointers(node * head, long block_size)
         num_nodes += 1;
         sum += p->weight;
     }
-    printf("Finished traversing %li nodes: sum = %li\n", num_nodes, sum); fflush(stdout);
+    printf("Finished traversing %li nodes: sum = %li\n", num_nodes, sum);
 }
 
 void
 pointer_chase_serial_spawn(pointer_chase_data * data)
 {
     for (long i = 0; i < data->num_threads; ++i) {
-        cilk_spawn chase_pointers(data->heads[i], data->block_size);
+        cilk_spawn chase_pointers(data->heads[i]);
     }
     cilk_sync;
 }
@@ -218,7 +218,7 @@ pointer_chase_recursive_spawn_worker(long low, long high, pointer_chase_data * d
     }
 
     /* Recursive base case: call worker function */
-    chase_pointers(data->heads[low], data->block_size);
+    chase_pointers(data->heads[low]);
 }
 
 void
@@ -234,7 +234,7 @@ serial_spawn_local(void * hint, pointer_chase_data * data)
     // Spawn a thread for each list head located at this nodelet
     // Using striped indexing to avoid migrations
     for (long i = NODE_ID(); i < data->num_threads; i += NODELETS()) {
-        cilk_spawn chase_pointers(data->heads[i], data->block_size);
+        cilk_spawn chase_pointers(data->heads[i]);
     }
 }
 
