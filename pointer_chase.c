@@ -53,9 +53,7 @@ mw_free(void * ptr)
 
 typedef struct node {
     struct node * next;
-    long neighbor;
     long weight;
-    long timestamp;
 } node;
 
 enum sort_mode {
