@@ -313,9 +313,9 @@ int main(int argc, char** argv)
 
     long n = 1L << args.log2_num_elements;
     long bytes = n * (sizeof(node));
-    long mbytes = bytes / (1024*1024);
+    long mbytes = bytes / (1000000);
     long mbytes_per_nodelet = mbytes / NODELETS();
-    printf("Initializing %s array with %li elements (%li MiB total, %li MiB per nodelet)\n",
+    printf("Initializing %s array with %li elements (%li MB total, %li MB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
     fflush(stdout);
     pointer_chase_data_init(&data,

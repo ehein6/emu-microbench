@@ -61,6 +61,6 @@ timer_calc_bandwidth(long ticks, long bytes)
 void
 timer_print_bandwidth(const char* name, double bytes_per_second)
 {
-    printf("%s: %3.2f MiB/s\n", name, bytes_per_second / (1024 * 1024));
+    printf("%s: %3.2f MB/s\n", name, bytes_per_second / (1000000));
     fflush(stdout);
 }
