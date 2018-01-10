@@ -185,7 +185,7 @@ pointer_chase_data_deinit(pointer_chase_data * data)
     mw_free(data->indices);
 }
 
-noinline void
+noinline long
 chase_pointers(node * head)
 {
     long num_nodes = 0;
@@ -194,16 +194,24 @@ chase_pointers(node * head)
         num_nodes += 1;
         sum += p->weight;
     }
-    printf("Finished traversing %li nodes: sum = %li\n", num_nodes, sum);
+    return sum;
+//    printf("Finished traversing %li nodes: sum = %li\n", num_nodes, sum);
 }
 
-void
+long
 pointer_chase_serial_spawn(pointer_chase_data * data)
 {
+    long * sums = malloc(sizeof(long) * data->num_threads);
     for (long i = 0; i < data->num_threads; ++i) {
-        cilk_spawn chase_pointers(data->heads[i]);
+        sums[i] = cilk_spawn chase_pointers(data->heads[i]);
     }
     cilk_sync;
+    long sum = 0;
+    for (long i = 0; i < data->num_threads; ++i) {
+        sum += sums[i];
+    }
+    printf("Finished traversing nodes: sum = %li\n", sum);
+    return sum;
 }
 
 void
