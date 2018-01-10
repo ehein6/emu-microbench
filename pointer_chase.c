@@ -5,7 +5,7 @@
 #include <cilk/cilk.h>
 #include <assert.h>
 #include <string.h>
-
+#include <getopt.h>
 #include "timer.h"
 #include "recursive_spawn.h"
 
@@ -15,7 +15,7 @@
 
 // Mimic memoryweb behavior on x86
 // TODO eventually move this all to its own header file
-#define NODELETS() (8)
+#define NODELETS() (1)
 #define NODE_ID() (0)
 #include <cilk/cilk_api.h>
 #define THREAD_ID() (__cilkrts_get_worker_number())
@@ -265,32 +265,78 @@ runtime_assert(bool condition, const char* message) {
     }
 }
 
+static const struct option long_options[] = {
+    {"log2_num_elements" , required_argument},
+    {"num_threads"  , required_argument},
+    {"block_size"   , required_argument},
+    {"spawn_mode"   , required_argument},
+    {"sort_mode"    , required_argument},
+    {"help"         , no_argument},
+    {NULL}
+};
+
+static void
+print_help(const char* argv0)
+{
+    fprintf(stderr, "Usage: %s [OPTIONS]\n", argv0);
+    fprintf(stderr,"\t--log2_num_elements  Number of elements in the list\n");
+    fprintf(stderr,"\t--num_threads        Number of threads traversing the list\n");
+    fprintf(stderr,"\t--block_size         Number of elements to swap at a time\n");
+    fprintf(stderr,"\t--spawn_mode         How to spawn the threads\n");
+    fprintf(stderr,"\t--sort_mode          How to shuffle the array\n");
+    fprintf(stderr,"\t--help               Print command line help\n");
+}
+
 typedef struct pointer_chase_args {
+    long log2_num_elements;
+    long num_threads;
+    long block_size;
     const char* spawn_mode;
     const char* sort_mode;
-    long log2_num_elements;
-    long block_size;
-    long num_threads;
 } pointer_chase_args;
 
-pointer_chase_args
-parse_args(int argc, char** argv)
+static struct pointer_chase_args
+parse_args(int argc, char *argv[])
 {
     pointer_chase_args args;
-    if (argc != 6) {
-        printf("Usage: %s spawn_mode sort_mode log2_num_elements block_size num_threads\n", argv[0]);
-        exit(1);
-    } else {
-        args.spawn_mode = argv[1];
-        args.sort_mode = argv[2];
-        args.log2_num_elements = atol(argv[3]);
-        args.block_size = atol(argv[4]);
-        args.num_threads = atol(argv[5]);
+    args.log2_num_elements = 20;
+    args.num_threads = 1;
+    args.block_size = 1;
+    args.spawn_mode = "serial_spawn";
+    args.sort_mode = "shuffled";
 
-        if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
-        if (args.block_size <= 0) { printf("block_size must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
+    int option_index;
+    while (true)
+    {
+        int c = getopt_long(argc, argv, "", long_options, &option_index);
+        // Done parsing
+        if (c == -1) { break; }
+        // Parse error
+        if (c == '?') {
+            fprintf(stderr, "Invalid arguments\n");
+            print_help(argv[0]);
+            exit(1);
+        }
+        const char* option_name = long_options[option_index].name;
+
+        if (!strcmp(option_name, "log2_num_elements")) {
+            args.log2_num_elements = atol(optarg);
+        } else if (!strcmp(option_name, "num_threads")) {
+            args.num_threads = atol(optarg);
+        } else if (!strcmp(option_name, "block_size")) {
+            args.block_size = atol(optarg);
+        } else if (!strcmp(option_name, "spawn_mode")) {
+            args.spawn_mode = optarg;
+        } else if (!strcmp(option_name, "sort_mode")) {
+            args.sort_mode = optarg;
+        } else if (!strcmp(option_name, "help")) {
+            print_help(argv[0]);
+            exit(1);
+        }
     }
+    if (args.log2_num_elements <= 0) { fprintf(stderr, "log2_num_elements must be > 0"); exit(1); }
+    if (args.block_size <= 0) { fprintf(stderr, "block_size must be > 0"); exit(1); }
+    if (args.num_threads <= 0) { fprintf(stderr, "num_threads must be > 0"); exit(1); }
     return args;
 }
 
@@ -307,7 +353,7 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.sort_mode, "striped")) {
         sort_mode = STRIPED;
     } else {
-        printf("Sort mode %s not implemented!\n", args.sort_mode); fflush(stdout);
+        fprintf(stderr, "Sort mode %s not implemented!\n", args.sort_mode);
         exit(1);
     }
 
