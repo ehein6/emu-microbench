@@ -51,6 +51,8 @@ mw_free(void * ptr)
 
 #endif
 
+#define LOG(...) fprintf(stderr, __VA_ARGS__); fflush(stderr);
+
 typedef struct node {
     struct node * next;
     long weight;
@@ -159,7 +161,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     long num_blocks = n / block_size;
 
     if (do_block_shuffle) {
-        printf("Beginning block shuffle...\n");
+        LOG("Beginning block shuffle...\n");
 
         // Make an array with an element for each block
         long * block_indices = malloc(sizeof(long) * num_blocks);
@@ -190,7 +192,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     }
 
     if (do_intra_block_shuffle) {
-        printf("Beginning intra-block shuffle\n");
+        LOG("Beginning intra-block shuffle\n");
         for (long block_id = 0; block_id < num_blocks; ++block_id) {
             cilk_spawn shuffle(data->indices + block_id * block_size, block_size);
         }
@@ -251,7 +253,7 @@ pointer_chase_serial_spawn(pointer_chase_data * data)
     for (long i = 0; i < data->num_threads; ++i) {
         sum += sums[i];
     }
-    printf("Finished traversing nodes: sum = %li\n", sum);
+    LOG("Finished traversing nodes: sum = %li\n", sum);
     return sum;
 }
 
@@ -309,7 +311,7 @@ do {                                                        \
 void
 runtime_assert(bool condition, const char* message) {
     if (!condition) {
-        printf("ERROR: %s\n", message); fflush(stdout);
+        LOG("ERROR: %s\n", message);
         exit(1);
     }
 }
@@ -327,13 +329,13 @@ static const struct option long_options[] = {
 static void
 print_help(const char* argv0)
 {
-    fprintf(stderr, "Usage: %s [OPTIONS]\n", argv0);
-    fprintf(stderr,"\t--log2_num_elements  Number of elements in the list\n");
-    fprintf(stderr,"\t--num_threads        Number of threads traversing the list\n");
-    fprintf(stderr,"\t--block_size         Number of elements to swap at a time\n");
-    fprintf(stderr,"\t--spawn_mode         How to spawn the threads\n");
-    fprintf(stderr,"\t--sort_mode          How to shuffle the array\n");
-    fprintf(stderr,"\t--help               Print command line help\n");
+    LOG( "Usage: %s [OPTIONS]\n", argv0);
+    LOG("\t--log2_num_elements  Number of elements in the list\n");
+    LOG("\t--num_threads        Number of threads traversing the list\n");
+    LOG("\t--block_size         Number of elements to swap at a time\n");
+    LOG("\t--spawn_mode         How to spawn the threads\n");
+    LOG("\t--sort_mode          How to shuffle the array\n");
+    LOG("\t--help               Print command line help\n");
 }
 
 typedef struct pointer_chase_args {
@@ -362,7 +364,7 @@ parse_args(int argc, char *argv[])
         if (c == -1) { break; }
         // Parse error
         if (c == '?') {
-            fprintf(stderr, "Invalid arguments\n");
+            LOG( "Invalid arguments\n");
             print_help(argv[0]);
             exit(1);
         }
@@ -383,9 +385,9 @@ parse_args(int argc, char *argv[])
             exit(1);
         }
     }
-    if (args.log2_num_elements <= 0) { fprintf(stderr, "log2_num_elements must be > 0"); exit(1); }
-    if (args.block_size <= 0) { fprintf(stderr, "block_size must be > 0"); exit(1); }
-    if (args.num_threads <= 0) { fprintf(stderr, "num_threads must be > 0"); exit(1); }
+    if (args.log2_num_elements <= 0) { LOG( "log2_num_elements must be > 0"); exit(1); }
+    if (args.block_size <= 0) { LOG( "block_size must be > 0"); exit(1); }
+    if (args.num_threads <= 0) { LOG( "num_threads must be > 0"); exit(1); }
     return args;
 }
 
@@ -404,7 +406,7 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.sort_mode, "full_block_shuffle")) {
         sort_mode = FULL_BLOCK_SHUFFLE;
     } else {
-        fprintf(stderr, "Sort mode %s not implemented!\n", args.sort_mode);
+        LOG( "Sort mode %s not implemented!\n", args.sort_mode);
         exit(1);
     }
 
@@ -412,12 +414,12 @@ int main(int argc, char** argv)
     long bytes = n * (sizeof(node));
     long mbytes = bytes / (1000000);
     long mbytes_per_nodelet = mbytes / NODELETS();
-    printf("Initializing %s array with %li elements (%li MB total, %li MB per nodelet)\n",
+    LOG("Initializing %s array with %li elements (%li MB total, %li MB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
     fflush(stdout);
     pointer_chase_data_init(&data,
         n, args.block_size, args.num_threads, sort_mode);
-    printf("Launching %s with %li threads...\n", args.spawn_mode, args.num_threads); fflush(stdout);
+    LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads); fflush(stdout);
 
     if (!strcmp(args.spawn_mode, "serial_spawn")) {
         RUN_BENCHMARK(pointer_chase_serial_spawn);
@@ -426,7 +428,7 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.spawn_mode, "serial_remote_spawn")) {
         RUN_BENCHMARK(pointer_chase_serial_remote_spawn);
     } else {
-        printf("Spawn mode %s not implemented!", args.spawn_mode);
+        LOG( "Spawn mode %s not implemented!", args.spawn_mode);
         exit(1);
     }
 
