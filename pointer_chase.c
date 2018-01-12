@@ -57,7 +57,10 @@ typedef struct node {
 } node;
 
 enum sort_mode {
-    STRIPED, ORDERED, SHUFFLED
+    ORDERED,
+    INTRA_BLOCK_SHUFFLE,
+    BLOCK_SHUFFLE,
+    FULL_BLOCK_SHUFFLE
 } sort_mode;
 
 typedef struct pointer_chase_data {
@@ -99,7 +102,6 @@ void
 pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long num_threads, enum sort_mode sort_mode)
 {
     data->n = n;
-    assert(block_size == 1);
     data->block_size = block_size;
     data->num_threads = num_threads;
     data->sort_mode = sort_mode;
@@ -122,36 +124,77 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     }
 #endif
 
+    // Initialize with striped index pattern (i.e. 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15)
+    // This will transform malloc2D address mode to sequential
+    long i = 0;
+    for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
+        for (long k = 0; k < n; k += NODELETS()) {
+            data->indices[i++] = k + nodelet_id;
+        }
+    }
+    assert(i == n);
+
+    bool do_block_shuffle = false, do_intra_block_shuffle = false;
     switch (data->sort_mode) {
-        case STRIPED: {
-            // Initialize indices array with 0 to n-1
-            // Due to malloc2D address mode, this will result in a striped layout
-            for (long i = 0; i < n; ++i) {
-                data->indices[i] = i;
-            }
+        case ORDERED:
+            do_block_shuffle = false;
+            do_intra_block_shuffle = false;
+            break;
+        case INTRA_BLOCK_SHUFFLE:
+            do_block_shuffle = false;
+            do_intra_block_shuffle = true;
+            break;
+        case BLOCK_SHUFFLE:
+            do_block_shuffle = true;
+            do_intra_block_shuffle = false;
+            break;
+        case FULL_BLOCK_SHUFFLE:
+            do_block_shuffle = true;
+            do_intra_block_shuffle = true;
+            break;
+    }
+
+
+    assert(n % block_size == 0);
+    long num_blocks = n / block_size;
+
+    if (do_block_shuffle) {
+        printf("Beginning block shuffle...\n");
+
+        // Make an array with an element for each block
+        long * block_indices = malloc(sizeof(long) * num_blocks);
+        for (long i = 0; i < num_blocks; ++i) {
+            block_indices[i] = i;
         }
-        break;
-        case ORDERED: {
-            // Initialize with striped index pattern (i.e. 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15)
-            // This will transform malloc2D address mode to sequential
-            long i = 0;
-            for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
-                for (long k = 0; k < n; k += NODELETS()) {
-                    data->indices[i++] = k + nodelet_id;
-                }
-            }
-            assert(i == n);
+        // Randomly shuffle it
+        shuffle(block_indices, num_blocks);
+
+        // Make a copy of the indices array
+        long * old_indices = malloc(sizeof(long) * n);
+        memcpy(old_indices, data->indices, n * sizeof(long));
+
+        // Permute the indices array according to the shuffled block indices
+        for (long src_block = 0; src_block < num_blocks; ++src_block) {
+            long dst_block = block_indices[src_block];
+            cilk_spawn memcpy(
+                data->indices + dst_block * block_size,
+                old_indices + src_block * block_size,
+                block_size * sizeof(long)
+            );
         }
-        break;
-        case SHUFFLED: {
-            // Initialize indices array with 0 to n-1
-            for (long i = 0; i < n; ++i) {
-                data->indices[i] = i;
-            }
-            // Randomly shuffle it
-            shuffle(data->indices, n);
+        cilk_sync;
+
+        // Clean up
+        free(block_indices);
+        free(old_indices);
+    }
+
+    if (do_intra_block_shuffle) {
+        printf("Beginning intra-block shuffle\n");
+        for (long block_id = 0; block_id < num_blocks; ++block_id) {
+            cilk_spawn shuffle(data->indices + block_id * block_size, block_size);
         }
-        break;
+        cilk_sync;
     }
 
     for (long i = 0; i < data->n; ++i) {
@@ -309,7 +352,7 @@ parse_args(int argc, char *argv[])
     args.num_threads = 1;
     args.block_size = 1;
     args.spawn_mode = "serial_spawn";
-    args.sort_mode = "shuffled";
+    args.sort_mode = "block_shuffle";
 
     int option_index;
     while (true)
@@ -352,12 +395,14 @@ int main(int argc, char** argv)
     pointer_chase_args args = parse_args(argc, argv);
 
     enum sort_mode sort_mode;
-    if (!strcmp(args.sort_mode, "shuffled")) {
-        sort_mode = SHUFFLED;
+    if (!strcmp(args.sort_mode, "block_shuffle")) {
+        sort_mode = BLOCK_SHUFFLE;
     } else if (!strcmp(args.sort_mode, "ordered")) {
         sort_mode = ORDERED;
-    } else if (!strcmp(args.sort_mode, "striped")) {
-        sort_mode = STRIPED;
+    } else if (!strcmp(args.sort_mode, "intra_block_shuffle")) {
+        sort_mode = INTRA_BLOCK_SHUFFLE;
+    } else if (!strcmp(args.sort_mode, "full_block_shuffle")) {
+        sort_mode = FULL_BLOCK_SHUFFLE;
     } else {
         fprintf(stderr, "Sort mode %s not implemented!\n", args.sort_mode);
         exit(1);
