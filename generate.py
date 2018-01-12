@@ -11,7 +11,7 @@ def mkdir(path):
 
 def main():
     emusim = "emusim.HW.x"
-    outdir = "pointer_chase"
+    outdir = "pointer_chase4"
     template = textwrap.dedent("""\
     #!/bin/bash
     #SBATCH --job-name={name}
@@ -23,30 +23,37 @@ def main():
     --output_instruction_count \\
     -o {outdir}/results/{name} \\
     -- \\
-    build-hw/{bench}.mwx {mode} {num_elements} {num_threads}
+    build-sim/{bench}.mwx \\
+    --log2_num_elements {log2_num_elements} \\
+    --num_threads {num_threads} \\
+    --spawn_mode {spawn_mode} \\
+    --sort_mode {sort_mode}
     """)
 
     mkdir("{outdir}/scripts/".format(**locals()))
     mkdir("{outdir}/results/".format(**locals()))
 
-    for bench, mode, num_elements, num_threads in itertools.product(
+    for bench, spawn_mode, sort_mode, num_threads in itertools.product(
         # bench
         ["pointer_chase"],
-        # modes
-        ["unshuffled", "shuffled"],
-        # log2_num_elements
-        [23],
+        # spawn_mode
+        ["serial_spawn", "serial_remote_spawn"],
+        # sort_mode
+        ["ordered", "shuffled"],
         # num_threads
         [int(2**i) for i in range(0, 8 + 6 + 1)]):
 
+        scale = 25
+        log2_num_elements = scale
+
         # Only generate one serial job
-        if mode == "serial":
+        if spawn_mode == "serial":
             if num_threads == 2:
                 num_threads = 1
             else:
                 continue
 
-        name = "emusim-chick-box.{}.{}.{}.{}".format(bench, mode, num_elements, num_threads)
+        name = "emusim-chick-box.{}.{}.{}.{}".format(bench, spawn_mode, sort_mode, num_threads)
 
         with open(os.path.join(outdir, "scripts", name + ".sh"), "w") as f:
             f.write(template.format(**locals()))
