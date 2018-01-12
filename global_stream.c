@@ -232,8 +232,12 @@ global_stream_add_emu_for_2d_worker(long begin, long end, void * arg1)
     global_stream_data * data = (global_stream_data *)arg1;
     long block_sz = data->n / NODELETS();
 
-    for (long i = begin; i < end; ++i) {
-        INDEX(data->c, block_sz, i) = INDEX(data->a, block_sz, i) + INDEX(data->b, block_sz, i);
+    long * c = &INDEX(data->c, block_sz, begin);
+    long * b = &INDEX(data->b, block_sz, begin);
+    long * a = &INDEX(data->a, block_sz, begin);
+
+    for (long i = 0; i < end-begin; ++i) {
+        c[i] = a[i] + b[i];
     }
 }
 
