@@ -39,6 +39,7 @@ mw_malloc2d(size_t nelem, size_t sz)
     // We need an 8-byte pointer for each element, plus the array of elements
     size_t bytes = nelem * sizeof(long) + nelem * sz;
     unsigned char ** ptrs = malloc(bytes);
+    if (!ptrs) return NULL;
     // Skip past the pointers to get to the raw array
     unsigned char * data = (unsigned char *)ptrs + nelem * sizeof(long);
     // Assign pointer to each element
