@@ -215,7 +215,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     data->num_threads = num_threads;
     data->sort_mode = sort_mode;
     // Allocate N nodes, striped across nodelets
-    data->pool = mw_malloc2d(n, sizeof(node) * block_size);
+    data->pool = mw_malloc2d(n, sizeof(node));
     assert(data->pool);
     // Store a pointer for this thread's head of the list
     data->heads = (node**)mw_malloc1dlong(num_threads);
