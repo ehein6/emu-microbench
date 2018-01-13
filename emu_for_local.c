@@ -29,7 +29,7 @@ for num_args in xrange(6):
             for (long i = begin; i < end; i += grain) {
                 long first = i;
                 long last = first + grain <= end ? first + grain : end;
-                cilk_spawn worker(begin, end${arg_list});
+                cilk_spawn worker(first, last${arg_list});
             }
         }
 
@@ -44,7 +44,7 @@ emu_local_for_v0(long begin, long end, long grain,
     for (long i = begin; i < end; i += grain) {
         long first = i;
         long last = first + grain <= end ? first + grain : end;
-        cilk_spawn worker(begin, end);
+        cilk_spawn worker(first, last);
     }
 }
 
@@ -56,7 +56,7 @@ emu_local_for_v1(long begin, long end, long grain,
     for (long i = begin; i < end; i += grain) {
         long first = i;
         long last = first + grain <= end ? first + grain : end;
-        cilk_spawn worker(begin, end, arg1);
+        cilk_spawn worker(first, last, arg1);
     }
 }
 
@@ -68,7 +68,7 @@ emu_local_for_v2(long begin, long end, long grain,
     for (long i = begin; i < end; i += grain) {
         long first = i;
         long last = first + grain <= end ? first + grain : end;
-        cilk_spawn worker(begin, end, arg1, arg2);
+        cilk_spawn worker(first, last, arg1, arg2);
     }
 }
 
@@ -80,7 +80,7 @@ emu_local_for_v3(long begin, long end, long grain,
     for (long i = begin; i < end; i += grain) {
         long first = i;
         long last = first + grain <= end ? first + grain : end;
-        cilk_spawn worker(begin, end, arg1, arg2, arg3);
+        cilk_spawn worker(first, last, arg1, arg2, arg3);
     }
 }
 
@@ -92,7 +92,7 @@ emu_local_for_v4(long begin, long end, long grain,
     for (long i = begin; i < end; i += grain) {
         long first = i;
         long last = first + grain <= end ? first + grain : end;
-        cilk_spawn worker(begin, end, arg1, arg2, arg3, arg4);
+        cilk_spawn worker(first, last, arg1, arg2, arg3, arg4);
     }
 }
 
@@ -104,7 +104,7 @@ emu_local_for_v5(long begin, long end, long grain,
     for (long i = begin; i < end; i += grain) {
         long first = i;
         long last = first + grain <= end ? first + grain : end;
-        cilk_spawn worker(begin, end, arg1, arg2, arg3, arg4, arg5);
+        cilk_spawn worker(first, last, arg1, arg2, arg3, arg4, arg5);
     }
 }
 
