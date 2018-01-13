@@ -22,10 +22,9 @@ for num_args in xrange(6):
 
     functions=Template("""
         static noinline void
-        emu_chunked_array_apply_v${num_args}_level1(void * hint, long begin, long end, long grain
-            ${arg_decls},
+        emu_chunked_array_apply_v${num_args}_level1(void * hint, long begin, long end, long grain,
             void (*worker)(long begin, long end${arg_decls})
-        )
+            ${arg_decls})
         {
             (void)hint;
             for (long i = begin; i < end; i += grain) {
@@ -36,9 +35,9 @@ for num_args in xrange(6):
         }
 
         void
-        emu_chunked_array_apply_v${num_args}(void ** array, long n, long grain
-            ${arg_decls},
-            void (*worker)(long begin, long end${arg_decls}))
+        emu_chunked_array_apply_v${num_args}(void ** array, long n, long grain,
+            void (*worker)(long begin, long end${arg_decls})
+            ${arg_decls})
         {
             // Each thread will be responsible for the elements on one nodelet
             long local_n = n / NODELETS();
@@ -54,10 +53,9 @@ for num_args in xrange(6):
     cog.out(functions.substitute(**locals()), dedent=True, trimblanklines=True)
 ]]]*/
 static noinline void
-emu_chunked_array_apply_v0_level1(void * hint, long begin, long end, long grain
-    ,
+emu_chunked_array_apply_v0_level1(void * hint, long begin, long end, long grain,
     void (*worker)(long begin, long end)
-)
+    )
 {
     (void)hint;
     for (long i = begin; i < end; i += grain) {
@@ -68,9 +66,9 @@ emu_chunked_array_apply_v0_level1(void * hint, long begin, long end, long grain
 }
 
 void
-emu_chunked_array_apply_v0(void ** array, long n, long grain
-    ,
-    void (*worker)(long begin, long end))
+emu_chunked_array_apply_v0(void ** array, long n, long grain,
+    void (*worker)(long begin, long end)
+    )
 {
     // Each thread will be responsible for the elements on one nodelet
     long local_n = n / NODELETS();
@@ -83,10 +81,9 @@ emu_chunked_array_apply_v0(void ** array, long n, long grain
 }
 
 static noinline void
-emu_chunked_array_apply_v1_level1(void * hint, long begin, long end, long grain
-    , void * arg1,
+emu_chunked_array_apply_v1_level1(void * hint, long begin, long end, long grain,
     void (*worker)(long begin, long end, void * arg1)
-)
+    , void * arg1)
 {
     (void)hint;
     for (long i = begin; i < end; i += grain) {
@@ -97,9 +94,9 @@ emu_chunked_array_apply_v1_level1(void * hint, long begin, long end, long grain
 }
 
 void
-emu_chunked_array_apply_v1(void ** array, long n, long grain
-    , void * arg1,
-    void (*worker)(long begin, long end, void * arg1))
+emu_chunked_array_apply_v1(void ** array, long n, long grain,
+    void (*worker)(long begin, long end, void * arg1)
+    , void * arg1)
 {
     // Each thread will be responsible for the elements on one nodelet
     long local_n = n / NODELETS();
@@ -112,10 +109,9 @@ emu_chunked_array_apply_v1(void ** array, long n, long grain
 }
 
 static noinline void
-emu_chunked_array_apply_v2_level1(void * hint, long begin, long end, long grain
-    , void * arg1, void * arg2,
+emu_chunked_array_apply_v2_level1(void * hint, long begin, long end, long grain,
     void (*worker)(long begin, long end, void * arg1, void * arg2)
-)
+    , void * arg1, void * arg2)
 {
     (void)hint;
     for (long i = begin; i < end; i += grain) {
@@ -126,9 +122,9 @@ emu_chunked_array_apply_v2_level1(void * hint, long begin, long end, long grain
 }
 
 void
-emu_chunked_array_apply_v2(void ** array, long n, long grain
-    , void * arg1, void * arg2,
-    void (*worker)(long begin, long end, void * arg1, void * arg2))
+emu_chunked_array_apply_v2(void ** array, long n, long grain,
+    void (*worker)(long begin, long end, void * arg1, void * arg2)
+    , void * arg1, void * arg2)
 {
     // Each thread will be responsible for the elements on one nodelet
     long local_n = n / NODELETS();
@@ -141,10 +137,9 @@ emu_chunked_array_apply_v2(void ** array, long n, long grain
 }
 
 static noinline void
-emu_chunked_array_apply_v3_level1(void * hint, long begin, long end, long grain
-    , void * arg1, void * arg2, void * arg3,
+emu_chunked_array_apply_v3_level1(void * hint, long begin, long end, long grain,
     void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3)
-)
+    , void * arg1, void * arg2, void * arg3)
 {
     (void)hint;
     for (long i = begin; i < end; i += grain) {
@@ -155,9 +150,9 @@ emu_chunked_array_apply_v3_level1(void * hint, long begin, long end, long grain
 }
 
 void
-emu_chunked_array_apply_v3(void ** array, long n, long grain
-    , void * arg1, void * arg2, void * arg3,
-    void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3))
+emu_chunked_array_apply_v3(void ** array, long n, long grain,
+    void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3)
+    , void * arg1, void * arg2, void * arg3)
 {
     // Each thread will be responsible for the elements on one nodelet
     long local_n = n / NODELETS();
@@ -170,10 +165,9 @@ emu_chunked_array_apply_v3(void ** array, long n, long grain
 }
 
 static noinline void
-emu_chunked_array_apply_v4_level1(void * hint, long begin, long end, long grain
-    , void * arg1, void * arg2, void * arg3, void * arg4,
+emu_chunked_array_apply_v4_level1(void * hint, long begin, long end, long grain,
     void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4)
-)
+    , void * arg1, void * arg2, void * arg3, void * arg4)
 {
     (void)hint;
     for (long i = begin; i < end; i += grain) {
@@ -184,9 +178,9 @@ emu_chunked_array_apply_v4_level1(void * hint, long begin, long end, long grain
 }
 
 void
-emu_chunked_array_apply_v4(void ** array, long n, long grain
-    , void * arg1, void * arg2, void * arg3, void * arg4,
-    void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4))
+emu_chunked_array_apply_v4(void ** array, long n, long grain,
+    void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4)
+    , void * arg1, void * arg2, void * arg3, void * arg4)
 {
     // Each thread will be responsible for the elements on one nodelet
     long local_n = n / NODELETS();
@@ -199,10 +193,9 @@ emu_chunked_array_apply_v4(void ** array, long n, long grain
 }
 
 static noinline void
-emu_chunked_array_apply_v5_level1(void * hint, long begin, long end, long grain
-    , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5,
+emu_chunked_array_apply_v5_level1(void * hint, long begin, long end, long grain,
     void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4, void * arg5)
-)
+    , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5)
 {
     (void)hint;
     for (long i = begin; i < end; i += grain) {
@@ -213,9 +206,9 @@ emu_chunked_array_apply_v5_level1(void * hint, long begin, long end, long grain
 }
 
 void
-emu_chunked_array_apply_v5(void ** array, long n, long grain
-    , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5,
-    void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4, void * arg5))
+emu_chunked_array_apply_v5(void ** array, long n, long grain,
+    void (*worker)(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4, void * arg5)
+    , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5)
 {
     // Each thread will be responsible for the elements on one nodelet
     long local_n = n / NODELETS();

@@ -6,8 +6,15 @@
 #include <assert.h>
 #include <string.h>
 #include <getopt.h>
+#include <limits.h>
+
 #include "timer.h"
-#include "recursive_spawn.h"
+#include "emu_for_2d.h"
+#include "emu_for_local.h"
+
+// TODO get max number of threads on platform
+#define LOCAL_GRAIN(X) (X/64)
+#define GLOBAL_GRAIN(X) (X/512)
 
 #ifdef __le64__
 #include <memoryweb.h>
@@ -80,6 +87,34 @@ typedef struct pointer_chase_data {
 
 replicated pointer_chase_data data;
 
+#define LCG_MUL64 6364136223846793005ULL
+#define LCG_ADD64 1
+
+void
+lcg_init(unsigned long * x, unsigned long step)
+{
+    unsigned long mul_k, add_k, ran, un;
+
+    mul_k = LCG_MUL64;
+    add_k = LCG_ADD64;
+
+    ran = 1;
+    for (un = step; un; un >>= 1) {
+        if (un & 1)
+            ran = mul_k * ran + add_k;
+        add_k *= (mul_k + 1);
+        mul_k *= mul_k;
+    }
+
+    *x = ran;
+}
+
+unsigned long
+lcg_rand(unsigned long * x) {
+    *x = LCG_MUL64 * *x + LCG_ADD64;
+    return *x;
+}
+
 //https://benpfaff.org/writings/clc/shuffle.html
 /* Arrange the N elements of ARRAY in random order.
    Only effective if N is much smaller than RAND_MAX;
@@ -87,18 +122,85 @@ replicated pointer_chase_data data;
    number generator. */
 void shuffle(long *array, size_t n)
 {
+    unsigned long rand_state;
+    lcg_init(&rand_state, (unsigned long)array);
     if (n > 1)
     {
         size_t i;
         for (i = 0; i < n - 1; i++)
         {
-            size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
+            size_t j = i + lcg_rand(&rand_state) / (ULONG_MAX / (n - i) + 1);
             long t = array[j];
             array[j] = array[i];
             array[i] = t;
         }
     }
 }
+
+// Initializes a list with 0, 1, 2, ...
+void
+index_init_worker(long begin, long end, void * arg1)
+{
+    long * list = (long*) arg1;
+    for (long i = begin; i < end; ++i) {
+        list[i] = i;
+    }
+}
+
+// Links the nodes of the list according to the index array
+void
+relink_worker(long begin, long end, void * arg1)
+{
+    pointer_chase_data* data = (pointer_chase_data *)arg1;
+    for (long i = begin; i < end; ++i) {
+        // String pointers together according to the index
+        long a = data->indices[i];
+        long b = data->indices[i == data->n - 1 ? 0 : i + 1];
+        data->pool[a]->next = data->pool[b];
+        // Initialize payload
+        data->pool[a]->weight = 1;
+    }
+}
+
+// Shuffles the index array at a block level
+void
+block_shuffle_worker(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4)
+{
+    long * block_indices = (long*)arg1;
+    long * old_indices = (long*)arg2;
+    long * new_indices = (long*)arg3;
+    long block_size = (long)arg4;
+
+    for (long src_block = begin; src_block < end; ++src_block) {
+        long dst_block = block_indices[src_block];
+        memcpy(
+            new_indices + dst_block * block_size,
+            old_indices + src_block * block_size,
+            block_size * sizeof(long)
+        );
+
+        long * dst_block_ptr = new_indices + dst_block * block_size;
+        long * src_block_ptr = old_indices + src_block * block_size;
+        // memcpy(dst_block_ptr, src_block_ptr, block_size * sizeof(long));
+        for (long i = 0; i < block_size; ++i) {
+            dst_block_ptr[i] = src_block_ptr[i];
+        }
+    }
+
+}
+
+
+// Shuffles the index array within each block
+void
+intra_block_shuffle_worker(long begin, long end, void * arg1, void * arg2)
+{
+    pointer_chase_data* data = (pointer_chase_data *)arg1;
+    long block_size = (long)arg2;
+    for (long block_id = begin; block_id < end; ++block_id) {
+        shuffle(data->indices + block_id * block_size, block_size);
+    }
+}
+
 
 void
 pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long num_threads, enum sort_mode sort_mode)
@@ -165,26 +267,23 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
         // Make an array with an element for each block
         long * block_indices = malloc(sizeof(long) * num_blocks);
-        for (long i = 0; i < num_blocks; ++i) {
-            block_indices[i] = i;
-        }
+        emu_local_for_v1(0, num_blocks, LOCAL_GRAIN(num_blocks),
+            index_init_worker, block_indices
+        );
+
+        LOG("shuffle block_indices...\n");
         // Randomly shuffle it
         shuffle(block_indices, num_blocks);
 
+        LOG("copy old_indices...\n");
         // Make a copy of the indices array
         long * old_indices = malloc(sizeof(long) * n);
         memcpy(old_indices, data->indices, n * sizeof(long));
 
-        // Permute the indices array according to the shuffled block indices
-        for (long src_block = 0; src_block < num_blocks; ++src_block) {
-            long dst_block = block_indices[src_block];
-            cilk_spawn memcpy(
-                data->indices + dst_block * block_size,
-                old_indices + src_block * block_size,
-                block_size * sizeof(long)
-            );
-        }
-        cilk_sync;
+        LOG("apply block_indices to indices...\n");
+        emu_local_for_v4(0, num_blocks, LOCAL_GRAIN(num_blocks),
+            block_shuffle_worker, block_indices, old_indices, data->indices, (void*)block_size
+        );
 
         // Clean up
         free(block_indices);
@@ -193,21 +292,18 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
     if (do_intra_block_shuffle) {
         LOG("Beginning intra-block shuffle\n");
-        for (long block_id = 0; block_id < num_blocks; ++block_id) {
-            cilk_spawn shuffle(data->indices + block_id * block_size, block_size);
-        }
-        cilk_sync;
+        emu_local_for_v2(0, num_blocks, LOCAL_GRAIN(num_blocks),
+            intra_block_shuffle_worker, data, (void*)block_size
+        );
     }
 
-    for (long i = 0; i < data->n; ++i) {
-        // String pointers together according to the index
-        long a = data->indices[i];
-        long b = data->indices[(i + 1) % data->n];
-        data->pool[a]->next = data->pool[b];
-        // Initialize payload
-        data->pool[a]->weight = 1;
-    }
+    LOG("Linking nodes together...\n");
+    // String pointers together according to the index
+    emu_local_for_v1(0, data->n, LOCAL_GRAIN(data->n),
+        relink_worker, data
+    );
 
+    LOG("Chop\n");
     // Chop up the list so there is one chunk per thread
     long chunk_size = n/num_threads;
     for (long i = 0; i < data->num_threads; ++i) {

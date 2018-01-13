@@ -246,8 +246,7 @@ global_stream_add_emu_for_2d(global_stream_data * data)
 {
     emu_chunked_array_apply_v1(
         (void**)data->a, data->n, data->n / data->num_threads,
-        data,
-        global_stream_add_emu_for_2d_worker);
+        global_stream_add_emu_for_2d_worker, data);
 }
 
 // serial_remote_spawn_shallow - same as serial_remote_spawn, but with only one level of spawning
