@@ -152,6 +152,20 @@ index_init_worker(long begin, long end, void * arg1)
     }
 }
 
+// Initializes a list with  0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15
+// This will transform malloc2D address mode to sequential
+noinline void
+strided_index_init_worker(long begin, long end, void * arg1, void * arg2)
+{
+    long * list = (long*) arg1;
+    long n = (long) arg2;
+    long num_nodelets = NODELETS();
+    for (long i = begin; i < end; ++i) {
+        // TODO strength reduction here
+        list[i] = (i * num_nodelets) % n + (i * num_nodelets) / n;
+    }
+}
+
 // Links the nodes of the list according to the index array
 noinline void
 relink_worker(long begin, long end, void * arg1)
@@ -178,12 +192,6 @@ block_shuffle_worker(long begin, long end, void * arg1, void * arg2, void * arg3
 
     for (long src_block = begin; src_block < end; ++src_block) {
         long dst_block = block_indices[src_block];
-        memcpy(
-            new_indices + dst_block * block_size,
-            old_indices + src_block * block_size,
-            block_size * sizeof(long)
-        );
-
         long * dst_block_ptr = new_indices + dst_block * block_size;
         long * src_block_ptr = old_indices + src_block * block_size;
         // memcpy(dst_block_ptr, src_block_ptr, block_size * sizeof(long));
@@ -224,6 +232,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     data->indices = malloc(n * sizeof(long));
     assert(data->indices);
 
+    LOG("Replicating pointers...\n");
 #ifdef __le64__
     // Replicate pointers to all other nodelets
     data = mw_get_nth(data, 0);
@@ -235,13 +244,10 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
     // Initialize with striped index pattern (i.e. 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15)
     // This will transform malloc2D address mode to sequential
-    long i = 0;
-    for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
-        for (long k = 0; k < n; k += NODELETS()) {
-            data->indices[i++] = k + nodelet_id;
-        }
-    }
-    assert(i == n);
+    LOG("Initializing indices...\n");
+    emu_local_for_v2(0, n, LOCAL_GRAIN(n),
+        strided_index_init_worker, data->indices, (void*)n
+    );
 
     bool do_block_shuffle = false, do_intra_block_shuffle = false;
     switch (data->sort_mode) {
