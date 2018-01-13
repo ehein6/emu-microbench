@@ -29,13 +29,15 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
 endif()
 
-add_library(utils OBJECT
+add_subdirectory(emu_c_utils)
+include_directories(emu_c_utils)
+link_libraries(emu_c_utils)
+
+add_library(misc OBJECT
     timer.c timer.h
-    emu_for_2d.c emu_for_2d.h
-    emu_for_local.c emu_for_local.h
     recursive_spawn.h
 )
 
-add_executable(local_stream local_stream.c $<TARGET_OBJECTS:utils>)
-add_executable(global_stream global_stream.c $<TARGET_OBJECTS:utils>)
-add_executable(pointer_chase pointer_chase.c $<TARGET_OBJECTS:utils>)
+add_executable(local_stream local_stream.c $<TARGET_OBJECTS:misc>)
+add_executable(global_stream global_stream.c $<TARGET_OBJECTS:misc>)
+add_executable(pointer_chase pointer_chase.c $<TARGET_OBJECTS:misc>)
