@@ -143,7 +143,7 @@ void shuffle(long *array, size_t n)
 }
 
 // Initializes a list with 0, 1, 2, ...
-void
+noinline void
 index_init_worker(long begin, long end, void * arg1)
 {
     long * list = (long*) arg1;
@@ -153,7 +153,7 @@ index_init_worker(long begin, long end, void * arg1)
 }
 
 // Links the nodes of the list according to the index array
-void
+noinline void
 relink_worker(long begin, long end, void * arg1)
 {
     pointer_chase_data* data = (pointer_chase_data *)arg1;
@@ -168,7 +168,7 @@ relink_worker(long begin, long end, void * arg1)
 }
 
 // Shuffles the index array at a block level
-void
+noinline void
 block_shuffle_worker(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4)
 {
     long * block_indices = (long*)arg1;
@@ -196,7 +196,7 @@ block_shuffle_worker(long begin, long end, void * arg1, void * arg2, void * arg3
 
 
 // Shuffles the index array within each block
-void
+noinline void
 intra_block_shuffle_worker(long begin, long end, void * arg1, void * arg2)
 {
     pointer_chase_data* data = (pointer_chase_data *)arg1;
