@@ -181,6 +181,14 @@ relink_worker(long begin, long end, void * arg1)
     }
 }
 
+noinline void
+memcpy_long_worker(long begin, long end, void * arg1, void * arg2)
+{
+    long * dst = (long*) arg1;
+    long * src = (long*) arg2;
+    memcpy(dst + begin, src + begin, (end-begin) * sizeof(long));
+}
+
 // Shuffles the index array at a block level
 noinline void
 block_shuffle_worker(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4)
@@ -289,7 +297,9 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         LOG("copy old_indices...\n");
         // Make a copy of the indices array
         long * old_indices = malloc(sizeof(long) * n);
-        memcpy(old_indices, data->indices, n * sizeof(long));
+        emu_local_for_v2(0, n, LOCAL_GRAIN(n),
+            memcpy_long_worker, old_indices, data->indices
+        );
 
         LOG("apply block_indices to indices...\n");
         emu_local_for_v4(0, num_blocks, LOCAL_GRAIN(num_blocks),
