@@ -1,5 +1,12 @@
 #pragma once
 
+// TODO get max number of threads on platform
+#ifdef __le64__
+#define GLOBAL_GRAIN(X) (X/512)
+#else
+#define GLOBAL_GRAIN(X) (X/4)
+#endif
+
 /*[[[cog
 
 from string import Template

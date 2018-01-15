@@ -12,14 +12,6 @@
 #include "emu_for_2d.h"
 #include "emu_for_local.h"
 
-// TODO get max number of threads on platform
-#ifdef __le64__
-#define LOCAL_GRAIN(X) (X/64)
-#define GLOBAL_GRAIN(X) (X/512)
-#else
-#define LOCAL_GRAIN(X) (X/4)
-#define GLOBAL_GRAIN(X) (X/4)
-#endif
 #ifdef __le64__
 #include <memoryweb.h>
 #else
