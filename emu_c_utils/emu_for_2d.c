@@ -45,7 +45,9 @@ for num_args in xrange(6):
             for (long i = 0; i < NODELETS(); ++i) {
                 long begin = local_n * i;
                 long end = local_n * (i + 1); if (end > n) { end = n; }
-                cilk_spawn emu_chunked_array_apply_v${num_args}_level1(array[i], begin, end, grain${arg_list}, worker);
+                cilk_spawn emu_chunked_array_apply_v${num_args}_level1(array[i], begin, end, grain,
+                    worker${arg_list}
+                );
             }
         }
 
@@ -76,7 +78,9 @@ emu_chunked_array_apply_v0(void ** array, long n, long grain,
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
         long end = local_n * (i + 1); if (end > n) { end = n; }
-        cilk_spawn emu_chunked_array_apply_v0_level1(array[i], begin, end, grain, worker);
+        cilk_spawn emu_chunked_array_apply_v0_level1(array[i], begin, end, grain,
+            worker
+        );
     }
 }
 
@@ -104,7 +108,9 @@ emu_chunked_array_apply_v1(void ** array, long n, long grain,
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
         long end = local_n * (i + 1); if (end > n) { end = n; }
-        cilk_spawn emu_chunked_array_apply_v1_level1(array[i], begin, end, grain, arg1, worker);
+        cilk_spawn emu_chunked_array_apply_v1_level1(array[i], begin, end, grain,
+            worker, arg1
+        );
     }
 }
 
@@ -132,7 +138,9 @@ emu_chunked_array_apply_v2(void ** array, long n, long grain,
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
         long end = local_n * (i + 1); if (end > n) { end = n; }
-        cilk_spawn emu_chunked_array_apply_v2_level1(array[i], begin, end, grain, arg1, arg2, worker);
+        cilk_spawn emu_chunked_array_apply_v2_level1(array[i], begin, end, grain,
+            worker, arg1, arg2
+        );
     }
 }
 
@@ -160,7 +168,9 @@ emu_chunked_array_apply_v3(void ** array, long n, long grain,
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
         long end = local_n * (i + 1); if (end > n) { end = n; }
-        cilk_spawn emu_chunked_array_apply_v3_level1(array[i], begin, end, grain, arg1, arg2, arg3, worker);
+        cilk_spawn emu_chunked_array_apply_v3_level1(array[i], begin, end, grain,
+            worker, arg1, arg2, arg3
+        );
     }
 }
 
@@ -188,7 +198,9 @@ emu_chunked_array_apply_v4(void ** array, long n, long grain,
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
         long end = local_n * (i + 1); if (end > n) { end = n; }
-        cilk_spawn emu_chunked_array_apply_v4_level1(array[i], begin, end, grain, arg1, arg2, arg3, arg4, worker);
+        cilk_spawn emu_chunked_array_apply_v4_level1(array[i], begin, end, grain,
+            worker, arg1, arg2, arg3, arg4
+        );
     }
 }
 
@@ -216,7 +228,9 @@ emu_chunked_array_apply_v5(void ** array, long n, long grain,
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
         long end = local_n * (i + 1); if (end > n) { end = n; }
-        cilk_spawn emu_chunked_array_apply_v5_level1(array[i], begin, end, grain, arg1, arg2, arg3, arg4, arg5, worker);
+        cilk_spawn emu_chunked_array_apply_v5_level1(array[i], begin, end, grain,
+            worker, arg1, arg2, arg3, arg4, arg5
+        );
     }
 }
 
