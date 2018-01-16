@@ -532,8 +532,6 @@ int main(int argc, char** argv)
 
     if (!strcmp(args.spawn_mode, "serial_spawn")) {
         RUN_BENCHMARK(pointer_chase_serial_spawn);
-    } else if (!strcmp(args.spawn_mode, "recursive_spawn")) {
-        RUN_BENCHMARK(pointer_chase_recursive_spawn);
     } else if (!strcmp(args.spawn_mode, "serial_remote_spawn")) {
         RUN_BENCHMARK(pointer_chase_serial_remote_spawn);
     } else {
