@@ -63,7 +63,7 @@ Allocates three arrays (A, B, C) with 2^`log2_num_elements` using a 2D array dis
 - cilk_for - Uses a cilk_for loop
 - serial_spawn - Uses a serial for loop to spawn a thread for each grain-sized chunk of the loop range
 - recursive_spawn - Recursively spawns threads to divide up the loop range
-- recursive_remote_spawn (not implemented) - Recursively spawns threads to divice up the loop range, using remote spawns where possible.
+- recursive_remote_spawn - Recursively spawns threads to divide up the loop range, using remote spawns where possible.
 - serial_remote_spawn - Remote spawns a thread on each nodelet, then divides up work as in serial_spawn
 - serial_remote_spawn_shallow - Like serial_remote_spawn, but all threads are remote spawned from nodelet 0.
 
