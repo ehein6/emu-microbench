@@ -73,12 +73,12 @@ global_stream_init(global_stream_data * data, long n)
     data->c = mw_malloc2d(NODELETS(), block_sz);
     assert(data->c);
 
-    for (long i = 0; i < NODELETS(); ++i) {
-        cilk_spawn memset(data->a[i], 0, block_sz);
-        cilk_spawn memset(data->b[i], 0, block_sz);
-        cilk_spawn memset(data->c[i], 0, block_sz);
-    }
-    cilk_sync;
+//    for (long i = 0; i < NODELETS(); ++i) {
+//        cilk_spawn memset(data->a[i], 0, block_sz);
+//        cilk_spawn memset(data->b[i], 0, block_sz);
+//        cilk_spawn memset(data->c[i], 0, block_sz);
+//    }
+//    cilk_sync;
 
 #ifdef __le64__
     // Replicate pointers to all other nodelets
