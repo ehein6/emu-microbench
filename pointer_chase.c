@@ -9,50 +9,12 @@
 #include <limits.h>
 
 #include "timer.h"
-#include "emu_for_2d.h"
 #include "emu_for_local.h"
 
 #ifdef __le64__
 #include <memoryweb.h>
 #else
-
-// Mimic memoryweb behavior on x86
-// TODO eventually move this all to its own header file
-#define NODELETS() (1)
-#define NODE_ID() (0)
-#include <cilk/cilk_api.h>
-#define THREAD_ID() (__cilkrts_get_worker_number())
-#define replicated
-#define PRIORITY(X) (63-__builtin_clzl(X))
-#define noinline __attribute__ ((noinline))
-void *
-mw_malloc2d(size_t nelem, size_t sz)
-{
-    // We need an 8-byte pointer for each element, plus the array of elements
-    size_t bytes = nelem * sizeof(long) + nelem * sz;
-    unsigned char ** ptrs = malloc(bytes);
-    if (!ptrs) return NULL;
-    // Skip past the pointers to get to the raw array
-    unsigned char * data = (unsigned char *)ptrs + nelem * sizeof(long);
-    // Assign pointer to each element
-    for (size_t i = 0; i < nelem; ++i) {
-        ptrs[i] = data + i * sz;
-    }
-    return ptrs;
-}
-
-void *
-mw_malloc1dlong(size_t nelem)
-{
-    return malloc(nelem * sizeof(long));
-}
-
-void
-mw_free(void * ptr)
-{
-    free(ptr);
-}
-
+#include "memoryweb_x86.h"
 #endif
 
 #define LOG(...) fprintf(stderr, __VA_ARGS__); fflush(stderr);

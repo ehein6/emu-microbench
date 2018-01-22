@@ -8,48 +8,18 @@
 
 #include "timer.h"
 #include "recursive_spawn.h"
-#include "emu_for_2d.h"
+#include "emu_chunked_array.h"
 
 #ifdef __le64__
 #include <memoryweb.h>
 #else
-
-// Mimic memoryweb behavior on x86
-// TODO eventually move this all to its own header file
-#define NODELETS() (8)
-#define replicated
-#define PRIORITY(X) (63-__builtin_clzl(X))
-#define noinline __attribute__ ((noinline))
-void *
-mw_malloc2d(size_t nelem, size_t sz)
-{
-    // We need an 8-byte pointer for each element, plus the array of elements
-    size_t bytes = nelem * sizeof(long) + nelem * sz;
-    unsigned char ** ptrs = malloc(bytes);
-    // Skip past the pointers to get to the raw array
-    unsigned char * data = (unsigned char *)ptrs + nelem * sizeof(long);
-    // Assign pointer to each element
-    for (size_t i = 0; i < nelem; ++i) {
-        ptrs[i] = data + i * sz;
-    }
-    return ptrs;
-}
-
-void *
-mw_malloc1dlong(size_t nelem)
-{
-    return malloc(nelem * sizeof(long));
-}
-
-void
-mw_free(void * ptr)
-{
-    free(ptr);
-}
-
+#include "memoryweb_x86.h"
 #endif
 
 typedef struct global_stream_data {
+    emu_chunked_array array_a;
+    emu_chunked_array array_b;
+    emu_chunked_array array_c;
     long ** a;
     long ** b;
     long ** c;
@@ -65,20 +35,14 @@ void
 global_stream_init(global_stream_data * data, long n)
 {
     data->n = n;
-    long block_sz = sizeof(long) * n/NODELETS();
-    data->a = mw_malloc2d(NODELETS(), block_sz);
-    assert(data->a);
-    data->b = mw_malloc2d(NODELETS(), block_sz);
-    assert(data->b);
-    data->c = mw_malloc2d(NODELETS(), block_sz);
-    assert(data->c);
+    emu_chunked_array_init(&data->array_a, n, sizeof(long));
+    data->a = (long**)data->array_a.data;
+    emu_chunked_array_init(&data->array_b, n, sizeof(long));
+    data->b = (long**)data->array_b.data;
+    emu_chunked_array_init(&data->array_c, n, sizeof(long));
+    data->c = (long**)data->array_c.data;
 
-//    for (long i = 0; i < NODELETS(); ++i) {
-//        cilk_spawn memset(data->a[i], 0, block_sz);
-//        cilk_spawn memset(data->b[i], 0, block_sz);
-//        cilk_spawn memset(data->c[i], 0, block_sz);
-//    }
-//    cilk_sync;
+    // TODO Initialize array values
 
 #ifdef __le64__
     // Replicate pointers to all other nodelets
@@ -93,9 +57,9 @@ global_stream_init(global_stream_data * data, long n)
 void
 global_stream_deinit(global_stream_data * data)
 {
-    mw_free(data->a);
-    mw_free(data->b);
-    mw_free(data->c);
+    emu_chunked_array_deinit(&data->array_a);
+    emu_chunked_array_deinit(&data->array_b);
+    emu_chunked_array_deinit(&data->array_c);
 }
 
 // serial - just a regular for loop
@@ -227,8 +191,9 @@ global_stream_add_recursive_remote_spawn(global_stream_data * data)
 }
 
 void
-global_stream_add_emu_for_2d_worker(long begin, long end, void * arg1)
+global_stream_add_emu_for_2d_worker(emu_chunked_array * array, long begin, long end, void * arg1)
 {
+    (void)array;
     global_stream_data * data = (global_stream_data *)arg1;
     long block_sz = data->n / NODELETS();
 
@@ -244,9 +209,9 @@ global_stream_add_emu_for_2d_worker(long begin, long end, void * arg1)
 void
 global_stream_add_emu_for_2d(global_stream_data * data)
 {
-    emu_chunked_array_apply_v1(
-        (void**)data->a, data->n, data->n / data->num_threads,
-        global_stream_add_emu_for_2d_worker, data);
+    emu_chunked_array_apply_v1(&data->array_a, GLOBAL_GRAIN(data->n),
+        global_stream_add_emu_for_2d_worker, data
+    );
 }
 
 // serial_remote_spawn_shallow - same as serial_remote_spawn, but with only one level of spawning
