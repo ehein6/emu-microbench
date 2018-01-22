@@ -1,11 +1,6 @@
 #pragma once
 
-// TODO get max number of threads on platform
-#ifdef __le64__
-#define LOCAL_GRAIN(X) (X/64)
-#else
-#define LOCAL_GRAIN(X) (X/4)
-#endif
+#include "emu_grain_helpers.h"
 
 /*[[[cog
 
