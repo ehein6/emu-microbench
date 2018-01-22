@@ -42,10 +42,6 @@ global_stream_init(global_stream_data * data, long n)
     emu_chunked_array_init(&data->array_c, n, sizeof(long));
     data->c = (long**)data->array_c.data;
 
-    emu_chunked_array_set_long(&data->array_a, 1);
-    emu_chunked_array_set_long(&data->array_b, 2);
-    emu_chunked_array_set_long(&data->array_c, 0);
-
 #ifdef __le64__
     // Replicate pointers to all other nodelets
     data = mw_get_nth(data, 0);
@@ -54,6 +50,10 @@ global_stream_init(global_stream_data * data, long n)
         memcpy(remote_data, data, sizeof(global_stream_data));
     }
 #endif
+
+    emu_chunked_array_set_long(&data->array_a, 1);
+    emu_chunked_array_set_long(&data->array_b, 2);
+    emu_chunked_array_set_long(&data->array_c, 0);
 }
 
 void

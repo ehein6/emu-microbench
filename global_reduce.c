@@ -33,7 +33,6 @@ global_reduce_init(global_reduce_data * data, long n)
     data->n = n;
     emu_chunked_array_init(&data->array_a, n, sizeof(long));
     data->a = (long**)data->array_a.data;
-//    emu_chunked_array_set_long(&data->array_a, 1);
 
 #ifdef __le64__
     // Replicate pointers to all other nodelets
@@ -43,6 +42,8 @@ global_reduce_init(global_reduce_data * data, long n)
         memcpy(remote_data, data, sizeof(global_reduce_data));
     }
 #endif
+
+    emu_chunked_array_set_long(&data->array_a, 1);
 }
 
 void
