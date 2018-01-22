@@ -40,4 +40,5 @@ add_library(misc OBJECT
 
 add_executable(local_stream local_stream.c $<TARGET_OBJECTS:misc>)
 add_executable(global_stream global_stream.c $<TARGET_OBJECTS:misc>)
+add_executable(global_reduce global_reduce.c $<TARGET_OBJECTS:misc>)
 add_executable(pointer_chase pointer_chase.c $<TARGET_OBJECTS:misc>)
