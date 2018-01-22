@@ -1,4 +1,3 @@
-#include "emu_for_2d.h"
 #include <cilk/cilk.h>
 
 #ifdef __le64__

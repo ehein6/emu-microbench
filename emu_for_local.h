@@ -1,5 +1,7 @@
 #pragma once
 
+#include "emu_grain_helpers.h"
+
 /*[[[cog
 
 from string import Template
