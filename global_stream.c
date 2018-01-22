@@ -42,7 +42,9 @@ global_stream_init(global_stream_data * data, long n)
     emu_chunked_array_init(&data->array_c, n, sizeof(long));
     data->c = (long**)data->array_c.data;
 
-    // TODO Initialize array values
+    emu_chunked_array_set_long(&data->array_a, 1);
+    emu_chunked_array_set_long(&data->array_b, 2);
+    emu_chunked_array_set_long(&data->array_c, 0);
 
 #ifdef __le64__
     // Replicate pointers to all other nodelets
@@ -60,6 +62,26 @@ global_stream_deinit(global_stream_data * data)
     emu_chunked_array_deinit(&data->array_a);
     emu_chunked_array_deinit(&data->array_b);
     emu_chunked_array_deinit(&data->array_c);
+}
+
+static noinline void
+global_stream_validate_worker(emu_chunked_array * array, long begin, long end)
+{
+    long * c = emu_chunked_array_index(array, begin);
+    for (long i = 0; i < end - begin; ++i) {
+        if (c[i] != 3) {
+            printf("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", begin + i, c[i]);
+            exit(1);
+        }
+    }
+}
+
+void
+global_stream_validate(global_stream_data * data)
+{
+    emu_chunked_array_apply_v0(&data->array_c, GLOBAL_GRAIN(data->n),
+        global_stream_validate_worker
+    );
 }
 
 // serial - just a regular for loop
@@ -307,6 +329,10 @@ int main(int argc, char** argv)
     } else {
         printf("Mode %s not implemented!", args.mode);
     }
+
+    printf("Validating results...");
+    global_stream_validate(&data);
+    printf("OK\n");
 
     global_stream_deinit(&data);
     return 0;
