@@ -7,7 +7,6 @@
 #include <string.h>
 #include <hooks.h>
 
-#include "timer.h"
 #include "emu_for_local.h"
 #include "recursive_spawn.h"
 

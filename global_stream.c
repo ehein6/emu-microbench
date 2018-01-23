@@ -6,7 +6,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include "timer.h"
 #include "hooks.h"
 #include "recursive_spawn.h"
 #include "emu_chunked_array.h"

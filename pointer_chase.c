@@ -9,7 +9,6 @@
 #include <limits.h>
 #include <hooks.h>
 
-#include "timer.h"
 #include "emu_for_local.h"
 
 #ifdef __le64__

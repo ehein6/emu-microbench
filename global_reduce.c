@@ -7,8 +7,6 @@
 #include <string.h>
 #include <hooks.h>
 
-#include "timer.h"
-#include "recursive_spawn.h"
 #include "emu_chunked_array.h"
 
 #ifdef __le64__
