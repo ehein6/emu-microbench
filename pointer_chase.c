@@ -17,7 +17,7 @@
 #include "memoryweb_x86.h"
 #endif
 
-#define LOG(...) fprintf(stderr, __VA_ARGS__); fflush(stderr);
+#include "common.h"
 
 typedef struct node {
     struct node * next;
@@ -310,7 +310,6 @@ chase_pointers(node * head, long * sum)
         local_sum += p->weight;
     }
     REMOTE_ADD(sum, local_sum);
-//    printf("Finished traversing %li nodes: sum = %li\n", num_nodes, local_sum);
 }
 
 void
@@ -363,14 +362,6 @@ pointer_chase_serial_remote_spawn(pointer_chase_data * data)
     }
 }
 
-void
-runtime_assert(bool condition, const char* message) {
-    if (!condition) {
-        LOG("ERROR: %s\n", message);
-        exit(1);
-    }
-}
-
 void pointer_chase_run(
     pointer_chase_data * data,
     const char * name,
@@ -385,7 +376,7 @@ void pointer_chase_run(
         double time_ms = hooks_region_end();
         runtime_assert(data->sum == data->n, "Validation FAILED!");
         double bytes_per_second = (data->n * sizeof(node)) / (time_ms/1000);
-        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+        LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
 

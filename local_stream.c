@@ -9,6 +9,7 @@
 
 #include "emu_for_local.h"
 #include "recursive_spawn.h"
+#include "common.h"
 
 typedef struct local_stream_data {
     long * a;
@@ -103,7 +104,7 @@ void local_stream_run(
         benchmark(data);
         double time_ms = hooks_region_end();
         double bytes_per_second = (data->n * sizeof(long) * 3) / (time_ms/1000);
-        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+        LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
 
@@ -117,7 +118,7 @@ int main(int argc, char** argv)
     } args;
 
     if (argc != 5) {
-        printf("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
+        LOG("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
@@ -125,18 +126,18 @@ int main(int argc, char** argv)
         args.num_threads = atol(argv[3]);
         args.num_trials = atol(argv[4]);
 
-        if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
-        if (args.num_trials <= 0) { printf("num_trials must be > 0"); exit(1); }
+        if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
+        if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
+        if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
     }
 
     long n = 1L << args.log2_num_elements;
-    printf("Initializing arrays with %li elements each (%li MiB)\n",
+    LOG("Initializing arrays with %li elements each (%li MiB)\n",
         n, (n * sizeof(long)) / (1024*1024)); fflush(stdout);
     local_stream_data data;
     data.num_threads = args.num_threads;
     local_stream_init(&data, n);
-    printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
+    LOG("Doing vector addition using %s\n", args.mode); fflush(stdout);
 
     #define RUN_BENCHMARK(X) local_stream_run(&data, args.mode, X, args.num_trials)
 
@@ -149,7 +150,7 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.mode, "serial")) {
         RUN_BENCHMARK(local_stream_add_serial);
     } else {
-        printf("Mode %s not implemented!", args.mode);
+        LOG("Mode %s not implemented!", args.mode);
     }
 
     local_stream_deinit(&data);

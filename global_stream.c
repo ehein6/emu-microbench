@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "hooks.h"
+#include "common.h"
 #include "recursive_spawn.h"
 #include "emu_chunked_array.h"
 
@@ -70,7 +71,7 @@ global_stream_validate_worker(emu_chunked_array * array, long begin, long end)
     long * c = emu_chunked_array_index(array, begin);
     for (long i = 0; i < end - begin; ++i) {
         if (c[i] != 3) {
-            printf("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", begin + i, c[i]);
+            LOG("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", begin + i, c[i]);
             exit(1);
         }
     }
@@ -268,18 +269,9 @@ void global_stream_run(
         benchmark(data);
         double time_ms = hooks_region_end();
         double bytes_per_second = (data->n * sizeof(long) * 3) / (time_ms/1000);
-        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+        LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
-
-void
-runtime_assert(bool condition, const char* message) {
-    if (!condition) {
-        printf("ERROR: %s\n", message); fflush(stdout);
-        exit(1);
-    }
-}
-
 
 replicated global_stream_data data;
 
@@ -293,7 +285,7 @@ int main(int argc, char** argv)
     } args;
 
     if (argc != 5) {
-        printf("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
+        LOG("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
@@ -301,9 +293,9 @@ int main(int argc, char** argv)
         args.num_threads = atol(argv[3]);
         args.num_trials = atol(argv[4]);
 
-        if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
-        if (args.num_trials <= 0) { printf("num_trials must be > 0"); exit(1); }
+        if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
+        if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
+        if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
     }
 
     hooks_set_attr_str("spawn_mode", args.mode);
@@ -315,11 +307,11 @@ int main(int argc, char** argv)
     long n = 1L << args.log2_num_elements;
     long mbytes = n * sizeof(long) / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
-    printf("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", 3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
+    LOG("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", 3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
     fflush(stdout);
     data.num_threads = args.num_threads;
     global_stream_init(&data, n);
-    printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
+    LOG("Doing vector addition using %s\n", args.mode); fflush(stdout);
 
     #define RUN_BENCHMARK(X) global_stream_run(&data, args.mode, X, args.num_trials)
 
@@ -345,12 +337,12 @@ int main(int argc, char** argv)
         runtime_assert(data.num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(global_stream_add_serial);
     } else {
-        printf("Mode %s not implemented!", args.mode);
+        LOG("Mode %s not implemented!", args.mode);
     }
 
-    printf("Validating results...");
+    LOG("Validating results...");
     global_stream_validate(&data);
-    printf("OK\n");
+    LOG("OK\n");
 
     global_stream_deinit(&data);
     return 0;

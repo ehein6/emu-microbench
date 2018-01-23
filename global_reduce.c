@@ -15,6 +15,8 @@
 #include "memoryweb_x86.h"
 #endif
 
+#include "common.h"
+
 typedef struct global_reduce_data {
     emu_chunked_array array_a;
     long ** a;
@@ -96,15 +98,6 @@ global_reduce_add_emu_reduce(global_reduce_data * data)
     return emu_chunked_array_reduce_sum_long(&data->array_a);
 }
 
-void
-runtime_assert(bool condition, const char* message)
-{
-    if (!condition) {
-        printf("ERROR: %s\n", message); fflush(stdout);
-        exit(1);
-    }
-}
-
 void global_reduce_run(
     global_reduce_data * data,
     const char * name,
@@ -118,7 +111,7 @@ void global_reduce_run(
         double time_ms = hooks_region_end();
         runtime_assert(sum == data->n, "Validation FAILED!");
         double bytes_per_second = (data->n * sizeof(long)) / (time_ms/1000);
-        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+        LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
 
@@ -136,7 +129,7 @@ int main(int argc, char** argv)
     } args;
 
     if (argc != 5) {
-        printf("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
+        LOG("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
@@ -144,19 +137,19 @@ int main(int argc, char** argv)
         args.num_threads = atol(argv[3]);
         args.num_trials = atol(argv[4]);
 
-        if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
-        if (args.num_trials <= 0) { printf("num_trials must be > 0"); exit(1); }
+        if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
+        if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
+        if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
     }
 
     long n = 1L << args.log2_num_elements;
     long mbytes = n * sizeof(long) / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
-    printf("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", n, mbytes, mbytes_per_nodelet);
+    LOG("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", n, mbytes, mbytes_per_nodelet);
     fflush(stdout);
     data.num_threads = args.num_threads;
     global_reduce_init(&data, n);
-    printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
+    LOG("Doing vector addition using %s\n", args.mode); fflush(stdout);
 
     #define RUN_BENCHMARK(X) global_reduce_run(&data, args.mode, X, args.num_trials)
 
@@ -167,7 +160,7 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.mode, "per_nodelet_remote")) {
         RUN_BENCHMARK(global_reduce_add_emu_reduce);
     } else {
-        printf("Mode %s not implemented!", args.mode);
+        LOG("Mode %s not implemented!", args.mode);
     }
 
     global_reduce_deinit(&data);
