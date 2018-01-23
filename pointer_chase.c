@@ -35,6 +35,8 @@ typedef struct pointer_chase_data {
     long n;
     long block_size;
     long num_threads;
+    // Threads accumulate result into this field, to prevent over-optimization
+    long sum;
     enum sort_mode sort_mode;
     // One pointer per thread
     node ** heads;
@@ -184,6 +186,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     data->block_size = block_size;
     data->num_threads = num_threads;
     data->sort_mode = sort_mode;
+    mw_replicated_init(&data->sum, 0);
     // Allocate N nodes, striped across nodelets
     data->pool = mw_malloc2d(n, sizeof(node));
     assert(data->pool);
@@ -299,33 +302,23 @@ pointer_chase_data_deinit(pointer_chase_data * data)
     mw_free(data->indices);
 }
 
-noinline long
-chase_pointers(node * head)
+static noinline void
+chase_pointers(node * head, long * sum)
 {
-    long num_nodes = 0;
-    long sum = 0;
+    long local_sum = 0;
     for (node * p = head; p != NULL; p = p->next) {
-        num_nodes += 1;
-        sum += p->weight;
+        local_sum += p->weight;
     }
-    return sum;
-//    printf("Finished traversing %li nodes: sum = %li\n", num_nodes, sum);
+    REMOTE_ADD(sum, local_sum);
+//    printf("Finished traversing %li nodes: sum = %li\n", num_nodes, local_sum);
 }
 
-long
+void
 pointer_chase_serial_spawn(pointer_chase_data * data)
 {
-    long * sums = malloc(sizeof(long) * data->num_threads);
     for (long i = 0; i < data->num_threads; ++i) {
-        sums[i] = cilk_spawn chase_pointers(data->heads[i]);
+        cilk_spawn chase_pointers(data->heads[i], &data->sum);
     }
-    cilk_sync;
-    long sum = 0;
-    for (long i = 0; i < data->num_threads; ++i) {
-        sum += sums[i];
-    }
-//    LOG("Finished traversing nodes: sum = %li\n", sum);
-    return sum;
 }
 
 void
@@ -340,7 +333,7 @@ pointer_chase_recursive_spawn_worker(long low, long high, pointer_chase_data * d
     }
 
     /* Recursive base case: call worker function */
-    chase_pointers(data->heads[low]);
+    chase_pointers(data->heads[low], &data->sum);
 }
 
 void
@@ -349,41 +342,24 @@ pointer_chase_recursive_spawn(pointer_chase_data * data)
     pointer_chase_recursive_spawn_worker(0, data->num_threads, data);
 }
 
-noinline void
+static noinline void
 serial_spawn_local(void * hint, pointer_chase_data * data)
 {
     (void)hint;
     // Spawn a thread for each list head located at this nodelet
     // Using striped indexing to avoid migrations
     for (long i = NODE_ID(); i < data->num_threads; i += NODELETS()) {
-        cilk_spawn chase_pointers(data->heads[i]);
+        cilk_spawn chase_pointers(data->heads[i], &data->sum);
     }
 }
 
-long
+void
 pointer_chase_serial_remote_spawn(pointer_chase_data * data)
 {
     // Spawn a thread at each nodelet
     for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id ) {
         if (nodelet_id >= data->num_threads) { break; }
         cilk_spawn serial_spawn_local(&data->heads[nodelet_id], data);
-    }
-    return 0;
-}
-
-void pointer_chase_run(
-    pointer_chase_data * data,
-    const char * name,
-    long (*benchmark)(pointer_chase_data *),
-    long num_trials)
-{
-    for (long trial = 0; trial < num_trials; ++trial) {
-        hooks_set_attr_i64("trial", trial);
-        hooks_region_begin(name);
-        benchmark(data);
-        double time_ms = hooks_region_end();
-        double bytes_per_second = (data->n * sizeof(node)) / (time_ms/1000);
-        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
 
@@ -394,6 +370,25 @@ runtime_assert(bool condition, const char* message) {
         exit(1);
     }
 }
+
+void pointer_chase_run(
+    pointer_chase_data * data,
+    const char * name,
+    void (*benchmark)(pointer_chase_data *),
+    long num_trials)
+{
+    for (long trial = 0; trial < num_trials; ++trial) {
+        hooks_set_attr_i64("trial", trial);
+        mw_replicated_init(&data->sum, 0);
+        hooks_region_begin(name);
+        benchmark(data);
+        double time_ms = hooks_region_end();
+        runtime_assert(data->sum == data->n, "Validation FAILED!");
+        double bytes_per_second = (data->n * sizeof(node)) / (time_ms/1000);
+        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+    }
+}
+
 
 static const struct option long_options[] = {
     {"log2_num_elements" , required_argument},
