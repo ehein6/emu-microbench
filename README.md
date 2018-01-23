@@ -41,7 +41,7 @@ Allocates three arrays (A, B, C) with 2^`log2_num_elements` on a single nodelet.
 
 ### Usage
 
-`./local_stream mode log2_num_elements num_threads`
+`./local_stream mode log2_num_elements num_threads num_trials`
 
 ### Modes
 
@@ -55,7 +55,7 @@ Allocates three arrays (A, B, C) with 2^`log2_num_elements` using a 2D array dis
 
 ### Usage
 
-`./global_stream mode log2_num_elements num_threads`
+`./global_stream mode log2_num_elements num_threads num_trials`
 
 ### Modes
 
@@ -87,6 +87,7 @@ See the documentation for `sort_mode` below.
     --block_size         Number of elements to swap at a time
     --spawn_mode         How to spawn the threads
     --sort_mode          How to shuffle the array
+    --num_trials         Number of times to run the benchmark
 ```
 
 ### Spawn Modes
