@@ -19,8 +19,17 @@ extern "C" {
 // stack frame from being carried along. For x86, inlining is good.
 #define noinline
 
-// FIXME
-#define CLOCK() 0
+#include <sys/time.h>
+#define CLOCK_RATE (1e6)
+static inline long CLOCK()
+{
+    struct timeval tp;
+    int i;
+
+    i = gettimeofday(&tp,NULL);
+    double time_seconds = ( (double) tp.tv_sec + (double) tp.tv_usec * 1.e-6 );
+    return time_seconds * CLOCK_RATE;
+}
 
 static inline void *
 mw_get_nth(void * repl_addr, long n) {
