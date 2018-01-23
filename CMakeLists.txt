@@ -33,12 +33,7 @@ add_subdirectory(emu_c_utils)
 include_directories(emu_c_utils)
 link_libraries(emu_c_utils)
 
-add_library(misc OBJECT
-    timer.c timer.h
-    recursive_spawn.h
-)
-
-add_executable(local_stream local_stream.c $<TARGET_OBJECTS:misc>)
-add_executable(global_stream global_stream.c $<TARGET_OBJECTS:misc>)
-add_executable(global_reduce global_reduce.c $<TARGET_OBJECTS:misc>)
-add_executable(pointer_chase pointer_chase.c $<TARGET_OBJECTS:misc>)
+add_executable(local_stream local_stream.c)
+add_executable(global_stream global_stream.c)
+add_executable(global_reduce global_reduce.c)
+add_executable(pointer_chase pointer_chase.c)

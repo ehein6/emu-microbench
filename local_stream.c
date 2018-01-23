@@ -5,8 +5,10 @@
 #include <cilk/cilk.h>
 #include <assert.h>
 #include <string.h>
+#include <hooks.h>
 
 #include "timer.h"
+#include "emu_for_local.h"
 #include "recursive_spawn.h"
 
 typedef struct local_stream_data {
@@ -28,10 +30,9 @@ local_stream_init(local_stream_data * data, long n)
     data->c = malloc(n * sizeof(long));
     assert(data->c);
 
-    cilk_spawn memset(data->a, 0, n * sizeof(long));
-    cilk_spawn memset(data->b, 0, n * sizeof(long));
-    cilk_spawn memset(data->c, 0, n * sizeof(long));
-    cilk_sync;
+    emu_local_for_set_long(data->a, n, 0);
+    emu_local_for_set_long(data->b, n, 0);
+    emu_local_for_set_long(data->c, n, 0);
 }
 
 void
@@ -91,15 +92,21 @@ local_stream_add_serial_spawn(local_stream_data * data)
     cilk_sync;
 }
 
-#define RUN_BENCHMARK(X) \
-do {                                                        \
-    timer_start();                                          \
-    X (&data);                                              \
-    long ticks = timer_stop();                              \
-    double bw = timer_calc_bandwidth(ticks, data.n * sizeof(long) * 3); \
-    timer_print_bandwidth( #X , bw);                        \
-} while (0)
-
+void local_stream_run(
+    local_stream_data * data,
+    const char * name,
+    void (*benchmark)(local_stream_data *),
+    long num_trials)
+{
+    for (long trial = 0; trial < num_trials; ++trial) {
+        hooks_set_attr_i64("trial", trial);
+        hooks_region_begin(name);
+        benchmark(data);
+        double time_ms = hooks_region_end();
+        double bytes_per_second = (data->n * sizeof(long) * 3) / (time_ms/1000);
+        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+    }
+}
 
 int main(int argc, char** argv)
 {
@@ -107,18 +114,21 @@ int main(int argc, char** argv)
         const char* mode;
         long log2_num_elements;
         long num_threads;
+        long num_trials;
     } args;
 
-    if (argc != 4) {
-        printf("Usage: %s mode log2_num_elements num_threads\n", argv[0]);
+    if (argc != 5) {
+        printf("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
         args.log2_num_elements = atol(argv[2]);
         args.num_threads = atol(argv[3]);
+        args.num_trials = atol(argv[4]);
 
         if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
         if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
+        if (args.num_trials <= 0) { printf("num_trials must be > 0"); exit(1); }
     }
 
     long n = 1L << args.log2_num_elements;
@@ -128,6 +138,8 @@ int main(int argc, char** argv)
     data.num_threads = args.num_threads;
     local_stream_init(&data, n);
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
+
+    #define RUN_BENCHMARK(X) local_stream_run(&data, args.mode, X, args.num_trials)
 
     if (!strcmp(args.mode, "cilk_for")) {
         RUN_BENCHMARK(local_stream_add_cilk_for);

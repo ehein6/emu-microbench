@@ -5,6 +5,7 @@
 #include <cilk/cilk.h>
 #include <assert.h>
 #include <string.h>
+#include <hooks.h>
 
 #include "timer.h"
 #include "recursive_spawn.h"
@@ -97,23 +98,33 @@ global_reduce_add_emu_reduce(global_reduce_data * data)
     return emu_chunked_array_reduce_sum_long(&data->array_a);
 }
 
-#define RUN_BENCHMARK(X) \
-do {                                                        \
-    timer_start();                                          \
-    long sum = X (&data);                                   \
-    long ticks = timer_stop();                              \
-    double bw = timer_calc_bandwidth(ticks, data.n * sizeof(long) * 3); \
-    timer_print_bandwidth( #X , bw);                        \
-    runtime_assert(sum == data.n, "Validation FAILED!");    \
-} while (0)
-
 void
-runtime_assert(bool condition, const char* message) {
+runtime_assert(bool condition, const char* message)
+{
     if (!condition) {
         printf("ERROR: %s\n", message); fflush(stdout);
         exit(1);
     }
 }
+
+void global_reduce_run(
+    global_reduce_data * data,
+    const char * name,
+    long (*benchmark)(global_reduce_data *),
+    long num_trials)
+{
+    for (long trial = 0; trial < num_trials; ++trial) {
+        hooks_set_attr_i64("trial", trial);
+        hooks_region_begin(name);
+        long sum = benchmark(data);
+        double time_ms = hooks_region_end();
+        runtime_assert(sum == data->n, "Validation FAILED!");
+        double bytes_per_second = (data->n * sizeof(long)) / (time_ms/1000);
+        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+    }
+}
+
+
 
 replicated global_reduce_data data;
 
@@ -123,18 +134,21 @@ int main(int argc, char** argv)
         const char* mode;
         long log2_num_elements;
         long num_threads;
+        long num_trials;
     } args;
 
-    if (argc != 4) {
-        printf("Usage: %s mode log2_num_elements num_threads\n", argv[0]);
+    if (argc != 5) {
+        printf("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
         args.log2_num_elements = atol(argv[2]);
         args.num_threads = atol(argv[3]);
+        args.num_trials = atol(argv[4]);
 
         if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
         if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
+        if (args.num_trials <= 0) { printf("num_trials must be > 0"); exit(1); }
     }
 
     long n = 1L << args.log2_num_elements;
@@ -145,6 +159,8 @@ int main(int argc, char** argv)
     data.num_threads = args.num_threads;
     global_reduce_init(&data, n);
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
+
+    #define RUN_BENCHMARK(X) global_reduce_run(&data, args.mode, X, args.num_trials)
 
     if (!strcmp(args.mode, "serial")) {
         RUN_BENCHMARK(global_reduce_add_serial);

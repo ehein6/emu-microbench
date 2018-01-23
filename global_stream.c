@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "timer.h"
+#include "hooks.h"
 #include "recursive_spawn.h"
 #include "emu_chunked_array.h"
 
@@ -256,14 +257,21 @@ global_stream_add_serial_remote_spawn_shallow(global_stream_data * data)
     cilk_sync;
 }
 
-#define RUN_BENCHMARK(X) \
-do {                                                        \
-    timer_start();                                          \
-    X (&data);                                              \
-    long ticks = timer_stop();                              \
-    double bw = timer_calc_bandwidth(ticks, data.n * sizeof(long) * 3); \
-    timer_print_bandwidth( #X , bw);                        \
-} while (0)
+void global_stream_run(
+    global_stream_data * data,
+    const char * name,
+    void (*benchmark)(global_stream_data *),
+    long num_trials)
+{
+    for (long trial = 0; trial < num_trials; ++trial) {
+        hooks_set_attr_i64("trial", trial);
+        hooks_region_begin(name);
+        benchmark(data);
+        double time_ms = hooks_region_end();
+        double bytes_per_second = (data->n * sizeof(long) * 3) / (time_ms/1000);
+        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+    }
+}
 
 void
 runtime_assert(bool condition, const char* message) {
@@ -282,19 +290,28 @@ int main(int argc, char** argv)
         const char* mode;
         long log2_num_elements;
         long num_threads;
+        long num_trials;
     } args;
 
-    if (argc != 4) {
-        printf("Usage: %s mode log2_num_elements num_threads\n", argv[0]);
+    if (argc != 5) {
+        printf("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
         args.log2_num_elements = atol(argv[2]);
         args.num_threads = atol(argv[3]);
+        args.num_trials = atol(argv[4]);
 
         if (args.log2_num_elements <= 0) { printf("log2_num_elements must be > 0"); exit(1); }
         if (args.num_threads <= 0) { printf("num_threads must be > 0"); exit(1); }
+        if (args.num_trials <= 0) { printf("num_trials must be > 0"); exit(1); }
     }
+
+    hooks_set_attr_str("spawn_mode", args.mode);
+    hooks_set_attr_i64("log2_num_elements", args.log2_num_elements);
+    hooks_set_attr_i64("num_threads", args.num_threads);
+    hooks_set_attr_i64("num_nodelets", NODELETS());
+    hooks_set_attr_i64("num_bytes_per_element", sizeof(long) * 3);
 
     long n = 1L << args.log2_num_elements;
     long mbytes = n * sizeof(long) / (1024*1024);
@@ -304,6 +321,8 @@ int main(int argc, char** argv)
     data.num_threads = args.num_threads;
     global_stream_init(&data, n);
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
+
+    #define RUN_BENCHMARK(X) global_stream_run(&data, args.mode, X, args.num_trials)
 
     if (!strcmp(args.mode, "cilk_for")) {
         RUN_BENCHMARK(global_stream_add_cilk_for);

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <limits.h>
+#include <hooks.h>
 
 #include "timer.h"
 #include "emu_for_local.h"
@@ -324,7 +325,7 @@ pointer_chase_serial_spawn(pointer_chase_data * data)
     for (long i = 0; i < data->num_threads; ++i) {
         sum += sums[i];
     }
-    LOG("Finished traversing nodes: sum = %li\n", sum);
+//    LOG("Finished traversing nodes: sum = %li\n", sum);
     return sum;
 }
 
@@ -360,7 +361,7 @@ serial_spawn_local(void * hint, pointer_chase_data * data)
     }
 }
 
-void
+long
 pointer_chase_serial_remote_spawn(pointer_chase_data * data)
 {
     // Spawn a thread at each nodelet
@@ -368,16 +369,24 @@ pointer_chase_serial_remote_spawn(pointer_chase_data * data)
         if (nodelet_id >= data->num_threads) { break; }
         cilk_spawn serial_spawn_local(&data->heads[nodelet_id], data);
     }
+    return 0;
 }
 
-#define RUN_BENCHMARK(X) \
-do {                                                        \
-    timer_start();                                          \
-    X (&data);                                              \
-    long ticks = timer_stop();                              \
-    double bw = timer_calc_bandwidth(ticks, bytes);         \
-    timer_print_bandwidth( #X , bw);                        \
-} while (0)
+void pointer_chase_run(
+    pointer_chase_data * data,
+    const char * name,
+    long (*benchmark)(pointer_chase_data *),
+    long num_trials)
+{
+    for (long trial = 0; trial < num_trials; ++trial) {
+        hooks_set_attr_i64("trial", trial);
+        hooks_region_begin(name);
+        benchmark(data);
+        double time_ms = hooks_region_end();
+        double bytes_per_second = (data->n * sizeof(node)) / (time_ms/1000);
+        printf("%3.2f MB/s\n", bytes_per_second / (1000000));
+    }
+}
 
 void
 runtime_assert(bool condition, const char* message) {
@@ -393,6 +402,7 @@ static const struct option long_options[] = {
     {"block_size"   , required_argument},
     {"spawn_mode"   , required_argument},
     {"sort_mode"    , required_argument},
+    {"num_trials"   , required_argument},
     {"help"         , no_argument},
     {NULL}
 };
@@ -406,6 +416,7 @@ print_help(const char* argv0)
     LOG("\t--block_size         Number of elements to swap at a time\n");
     LOG("\t--spawn_mode         How to spawn the threads\n");
     LOG("\t--sort_mode          How to shuffle the array\n");
+    LOG("\t--num_trials         Number of times to repeat the benchmark\n");
     LOG("\t--help               Print command line help\n");
 }
 
@@ -415,6 +426,7 @@ typedef struct pointer_chase_args {
     long block_size;
     const char* spawn_mode;
     const char* sort_mode;
+    long num_trials;
 } pointer_chase_args;
 
 static struct pointer_chase_args
@@ -426,6 +438,7 @@ parse_args(int argc, char *argv[])
     args.block_size = 1;
     args.spawn_mode = "serial_spawn";
     args.sort_mode = "block_shuffle";
+    args.num_trials = 1;
 
     int option_index;
     while (true)
@@ -451,6 +464,8 @@ parse_args(int argc, char *argv[])
             args.spawn_mode = optarg;
         } else if (!strcmp(option_name, "sort_mode")) {
             args.sort_mode = optarg;
+        } else if (!strcmp(option_name, "num_trials")) {
+            args.num_trials = atol(optarg);
         } else if (!strcmp(option_name, "help")) {
             print_help(argv[0]);
             exit(1);
@@ -481,6 +496,13 @@ int main(int argc, char** argv)
         exit(1);
     }
 
+    hooks_set_attr_i64("log2_num_elements", args.log2_num_elements);
+    hooks_set_attr_i64("num_threads", args.num_threads);
+    hooks_set_attr_i64("block_size", args.block_size);
+    hooks_set_attr_str("spawn_mode", args.spawn_mode);
+    hooks_set_attr_str("sort_mode", args.sort_mode);
+    hooks_set_attr_i64("num_nodelets", NODELETS());
+
     long n = 1L << args.log2_num_elements;
     long bytes = n * (sizeof(node));
     long mbytes = bytes / (1000000);
@@ -491,6 +513,8 @@ int main(int argc, char** argv)
     pointer_chase_data_init(&data,
         n, args.block_size, args.num_threads, sort_mode);
     LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads); fflush(stdout);
+
+    #define RUN_BENCHMARK(X) pointer_chase_run(&data, args.spawn_mode, X, args.num_trials)
 
     if (!strcmp(args.spawn_mode, "serial_spawn")) {
         RUN_BENCHMARK(pointer_chase_serial_spawn);
