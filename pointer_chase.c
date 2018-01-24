@@ -190,23 +190,21 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     mw_replicated_init(&data->sum, 0);
     // Allocate N nodes, striped across nodelets
     data->pool = mw_malloc2d(n, sizeof(node));
-    assert(data->pool);
+    runtime_assert(data->pool != NULL, "Failed to allocate element pool");
     // Store a pointer for this thread's head of the list
     data->heads = (node**)mw_malloc1dlong(num_threads);
-    assert(data->heads);
+    runtime_assert(data->heads != NULL, "Failed to allocate pointers for each thread");
     // Make an array with entries 1 through n
     data->indices = malloc(n * sizeof(long));
-    assert(data->indices);
+    runtime_assert(data->indices != NULL, "Failed to allocate local index array");
 
     LOG("Replicating pointers...\n");
-#ifdef __le64__
     // Replicate pointers to all other nodelets
     data = mw_get_nth(data, 0);
     for (long i = 1; i < NODELETS(); ++i) {
         pointer_chase_data * remote_data = mw_get_nth(data, i);
         memcpy(remote_data, data, sizeof(pointer_chase_data));
     }
-#endif
 
     // Initialize with striped index pattern (i.e. 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15)
     // This will transform malloc2D address mode to sequential
@@ -236,7 +234,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     }
 
 
-    assert(n % block_size == 0);
+    runtime_assert((n & block_size-1) == 0, "Block size must evenly divide number of elements");
     long num_blocks = n / block_size;
 
     if (do_block_shuffle) {
@@ -300,7 +298,7 @@ pointer_chase_data_deinit(pointer_chase_data * data)
 {
     mw_free(data->pool);
     mw_free(data->heads);
-    mw_free(data->indices);
+    free(data->indices);
 }
 
 static noinline void
