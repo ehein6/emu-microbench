@@ -110,15 +110,16 @@ index_init_worker(long begin, long end, void * arg1)
 
 // Initializes a list with  0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15
 // This will transform malloc2D address mode to sequential
-noinline void
+static noinline void
 strided_index_init_worker(long begin, long end, void * arg1, void * arg2)
 {
     long * list = (long*) arg1;
-    long n = (long) arg2;
-    long num_nodelets = NODELETS();
+    const long n = (long) arg2;
+    const long num_nodelets = NODELETS();
     for (long i = begin; i < end; ++i) {
-        // TODO strength reduction here
-        list[i] = (i * num_nodelets) % n + (i * num_nodelets) / n;
+        // = i * NODELETS() % n
+        // + i * NODELETS() / n
+        list[i] = ((i * num_nodelets) & (n-1)) + ((i * num_nodelets) >> PRIORITY(n));
     }
 }
 
