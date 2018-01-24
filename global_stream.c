@@ -268,7 +268,8 @@ void global_stream_run(
         hooks_region_begin(name);
         benchmark(data);
         double time_ms = hooks_region_end();
-        double bytes_per_second = (data->n * sizeof(long) * 3) / (time_ms/1000);
+        double bytes_per_second = time_ms == 0 ? 0 :
+            (data->n * sizeof(long) * 3) / (time_ms/1000);
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }

@@ -362,6 +362,17 @@ pointer_chase_serial_remote_spawn(pointer_chase_data * data)
     }
 }
 
+// TODO make this an emu_c_utils library function
+long
+emu_replicated_reduce_sum_long(long * x)
+{
+    long sum = 0;
+    for (long i = 0; i < NODELETS(); ++i) {
+        sum += *(long*)mw_get_nth(x, i);
+    }
+    return sum;
+}
+
 void pointer_chase_run(
     pointer_chase_data * data,
     const char * name,
@@ -374,8 +385,9 @@ void pointer_chase_run(
         hooks_region_begin(name);
         benchmark(data);
         double time_ms = hooks_region_end();
-        runtime_assert(data->sum == data->n, "Validation FAILED!");
-        double bytes_per_second = (data->n * sizeof(node)) / (time_ms/1000);
+        runtime_assert(emu_replicated_reduce_sum_long(&data->sum) == data->n, "Validation FAILED!");
+        double bytes_per_second = time_ms == 0 ? 0 :
+            (data->n * sizeof(node)) / (time_ms/1000);
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }

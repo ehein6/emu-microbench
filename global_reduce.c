@@ -110,7 +110,8 @@ void global_reduce_run(
         long sum = benchmark(data);
         double time_ms = hooks_region_end();
         runtime_assert(sum == data->n, "Validation FAILED!");
-        double bytes_per_second = (data->n * sizeof(long)) / (time_ms/1000);
+        double bytes_per_second = time_ms == 0 ? 0 :
+            (data->n * sizeof(long)) / (time_ms/1000);
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
