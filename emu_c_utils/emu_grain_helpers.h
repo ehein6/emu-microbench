@@ -20,11 +20,11 @@
 static inline long
 GLOBAL_GRAIN(long n)
 {
-    return n > GLOBAL_NUM_THREADS ? (n/GLOBAL_NUM_THREADS) : n;
+    return n > GLOBAL_NUM_THREADS ? (n/GLOBAL_NUM_THREADS) : 1;
 }
 
 static inline long
 LOCAL_GRAIN(long n)
 {
-    return n > LOCAL_NUM_THREADS ? (n/LOCAL_NUM_THREADS) : n;
+    return n > LOCAL_NUM_THREADS ? (n/LOCAL_NUM_THREADS) : 1;
 }
