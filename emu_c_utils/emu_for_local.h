@@ -59,3 +59,6 @@ emu_local_for_v5(long begin, long end, long grain,
  */
 void
 emu_local_for_set_long(long * array, long n, long value);
+
+void
+emu_local_for_copy_long(long * dst, long * src, long n);
