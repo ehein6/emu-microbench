@@ -27,7 +27,7 @@ hooks_output_file()
         const char* filename = getenv("HOOKS_FILENAME");
         if (filename)
         {
-            fp = fopen(filename, "w");
+            fp = fopen(filename, "a");
             assert(fp);
         } else {
             // HOOKS_FILENAME unset, defaulting to stdout
