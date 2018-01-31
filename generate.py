@@ -65,9 +65,9 @@ def pass_args(arg_names):
 def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_algs):
     """Generate a script to run the experiment specified by the independent variables in args"""
 
+    # Add platform name to args
+    args.platform = local_config["platform"]
     script_name = os.path.join(script_dir, "{}.sh".format(args))
-
-    print args
 
     # Derived params are calculated from 'args' when the script is generated
     args.update({
@@ -101,6 +101,8 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
         echo '{json}' | tee $LOGFILE $OUTFILE  >/dev/null
         echo `hostname` | tee -a $LOGFILE $OUTFILE >/dev/null
         """
+    # Run multiple trials
+    template += """for trial in $(seq {num_trials}); do """
 
     # Emu hardware (single node) command line
     if local_config["platform"] == "native":
@@ -127,8 +129,9 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
     if args.benchmark in ["local_stream", "global_stream"]:
         # Generate the benchmark command line
         template += """
-        {spawn_mode} {log2_num_elements} {num_threads} {num_trials} \\
-        &>> $LOGFILE"""
+        {spawn_mode} {log2_num_elements} {num_threads} 1 \\
+        &>> $LOGFILE
+        """
 
     elif args.benchmark == "pointer_chase":
         # Generate the benchmark command line
@@ -138,12 +141,13 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
         --block_size {block_size} \\
         --spawn_mode {spawn_mode} \\
         --sort_mode {sort_mode} \\
-        --num_trials {num_trials} \\
         &>> $LOGFILE
         """
 
     else:
         raise Exception("Unsupported benchmark {}".format(args.benchmark))
+
+    template += "done\n"
 
     # Fill in the blanks
     command = textwrap.dedent(template).format(**args)
