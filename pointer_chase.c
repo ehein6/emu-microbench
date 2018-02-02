@@ -234,7 +234,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     }
 
 
-    runtime_assert((n & block_size-1) == 0, "Block size must evenly divide number of elements");
+    runtime_assert((n % block_size) == 0, "Block size must evenly divide number of elements");
     long num_blocks = n / block_size;
 
     if (do_block_shuffle) {
