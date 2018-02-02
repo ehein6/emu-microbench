@@ -11,8 +11,8 @@
 #ifdef BUILD_FOR_EMUSIM
 #define CLOCK_RATE (300e6)
 #else
-// 126 MHz clock on current EMU FPGA's
-#define CLOCK_RATE (126e6)
+// 150 MHz clock on current EMU FPGA's
+#define CLOCK_RATE (150e6)
 #endif
 #else
 #include "memoryweb_x86.h"
