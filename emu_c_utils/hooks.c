@@ -61,7 +61,7 @@ typedef struct hooks_data {
     char str[HOOKS_STR_LEN];
     size_t pos;
 } hooks_data;
-static hooks_data data = {0};
+static hooks_data data = {};
 
 // Append to buffer with printf
 static void
