@@ -123,6 +123,7 @@ double hooks_region_end()
     // Add time elapsed to result string
     double time_ms = hooks_timestamp * 1000.0 / CLOCK_RATE;
     hooks_add_field("time_ms", "%3.2f", time_ms);
+    hooks_add_field("ticks", "%li", hooks_timestamp);
 
     // Dump results
     fprintf(hooks_output_file(), "%s}\n", data.str); fflush(hooks_output_file());
