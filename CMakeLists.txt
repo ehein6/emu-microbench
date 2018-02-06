@@ -44,5 +44,5 @@ add_executable(ping_pong ping_pong.c)
 # C++ benchmarks
 # Include support libraries
 include_directories(emu_cxx_utils)
-add_executable(local_stream_cxx local_stream.cc)
-add_executable(global_stream_cxx global_stream.cc)
+add_executable(local_stream_cxx local_stream_cxx.cc)
+add_executable(global_stream_cxx global_stream_cxx.cc)
