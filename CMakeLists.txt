@@ -1,28 +1,34 @@
 cmake_minimum_required (VERSION 3.5.1)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-project(emu-microbench C)
+project(emu-microbench C CXX)
 
-# Use the C11 standard
+# Use the 2011 standards for C and C++
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
-list(APPEND ${CMAKE_CXX_FLAGS} "-std=c++11")
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 # Turn warnings into errors
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
+# Enable Cilk
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus")
 
+# Disable some errant warnings caused by cilk_for
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-uninitialized -Wno-cilk-loop-control-var-modification")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-uninitialized -Wno-cilk-loop-control-var-modification")
+
+# Arch-specific directives
 if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
+    # Add flag to build for simulator or hardware
     set(BUILD_FOR_EMUSIM OFF
         CACHE BOOL "If enabled, will call starttiming() at the beginning of the ROI")
-
     if (${BUILD_FOR_EMUSIM})
         add_definitions(-DBUILD_FOR_EMUSIM)
     endif()
 
 else()
-    # Enable Cilk
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
+    # Link with cilk runtime
     link_libraries(cilkrts)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
 endif()
 
 add_subdirectory(emu_c_utils)
@@ -34,3 +40,9 @@ add_executable(global_stream global_stream.c)
 add_executable(global_reduce global_reduce.c)
 add_executable(pointer_chase pointer_chase.c)
 add_executable(ping_pong ping_pong.c)
+
+# C++ benchmarks
+# Include support libraries
+include_directories(emu_cxx_utils)
+add_executable(local_stream_cxx local_stream.cc)
+add_executable(global_stream_cxx global_stream.cc)
