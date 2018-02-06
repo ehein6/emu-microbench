@@ -1,8 +1,7 @@
 cmake_minimum_required (VERSION 3.5.1)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-project(emu-microbench NONE)
-enable_language(C)
+project(emu-microbench C)
 
 # Use the C11 standard
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
@@ -19,9 +18,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
         add_definitions(-DBUILD_FOR_EMUSIM)
     endif()
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-    link_directories("${LIBC_INSTALL}/lib" "${MEMWEB_INSTALL}/lib")
-    link_libraries(memoryweb muslc)
 else()
     # Enable Cilk
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
