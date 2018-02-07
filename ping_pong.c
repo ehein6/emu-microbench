@@ -125,6 +125,11 @@ int main(int argc, char** argv)
         if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
     }
 
+    hooks_set_attr_str("mode", args.mode);
+    hooks_set_attr_i64("log2_num_migrations", args.log2_num_migrations);
+    hooks_set_attr_i64("num_threads", args.num_threads);
+    hooks_set_attr_i64("num_nodelets", NODELETS());
+
     long n = 1L << args.log2_num_migrations;
     ping_pong_data data;
     data.num_threads = args.num_threads;
