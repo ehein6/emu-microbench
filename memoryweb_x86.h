@@ -1,3 +1,9 @@
+/*! \file memoryweb_x86
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Header file for Emu memory web on x86
+ */
+
 #pragma once
 
 #ifdef __cplusplus
@@ -19,8 +25,15 @@ extern "C" {
 // stack frame from being carried along. For x86, inlining is good.
 #define noinline
 
-// FIXME
-#define CLOCK() 0
+#include <sys/time.h>
+#define MEMORYWEB_X86_CLOCK_RATE (500L)
+static inline long CLOCK()
+{
+    struct timeval tp;
+    gettimeofday(&tp,NULL);
+    double time_seconds = ( (double) tp.tv_sec + (double) tp.tv_usec * 1.e-6 );
+    return time_seconds * (MEMORYWEB_X86_CLOCK_RATE * 1e6);
+}
 
 static inline void *
 mw_get_nth(void * repl_addr, long n) {
@@ -62,10 +75,23 @@ mw_malloc2d(size_t nelem, size_t sz)
 }
 
 static inline void *
+mw_arrayindex(long * array2d, unsigned long i, unsigned long numelements, size_t eltsize)
+{
+    unsigned char ** array = (unsigned char**) array2d;
+    return &array[i][0];
+}
+
+static inline void *
 mw_localmalloc(size_t sz, void * localpointer)
 {
     (void)localpointer;
     return malloc(sz);
+}
+
+static inline void
+mw_localfree(void * localpointer)
+{
+    free(localpointer);
 }
 
 static inline void *

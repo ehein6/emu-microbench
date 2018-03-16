@@ -1,12 +1,15 @@
+/*! \file emu_for_local
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Source file for Emu local for
+ */
 #include <cilk/cilk.h>
+#include "emu_grain_helpers.h"
 
 #ifdef __le64__
 #include <memoryweb.h>
 #else
-// Mimic memoryweb behavior on x86
-// TODO eventually move this all to its own header file
-#define NODELETS() (1)
-#define noinline __attribute__ ((noinline))
+#include "memoryweb_x86.h"
 #endif
 
 
@@ -108,3 +111,39 @@ emu_local_for_v5(long begin, long end, long grain,
 }
 
 /* [[[end]]] */
+
+static noinline void
+emu_local_for_set_long_worker(long begin, long end, void * arg1, void * arg2)
+{
+    long * array = arg1;
+    long value = (long)arg2;
+    for (long i = begin; i < end; ++i) {
+        array[i] = value;
+    }
+}
+
+void
+emu_local_for_set_long(long * array, long n, long value)
+{
+    emu_local_for_v2(0, n, LOCAL_GRAIN(n),
+        emu_local_for_set_long_worker, array, (void*)value
+    );
+}
+
+static noinline void
+emu_local_for_copy_long_worker(long begin, long end, void * arg1, void * arg2)
+{
+    long * dst = arg1;
+    long * src = arg2;
+    for (long i = begin; i < end; ++i) {
+        dst[i] = src[i];
+    }
+}
+
+void
+emu_local_for_copy_long(long * dst, long * src, long n)
+{
+    emu_local_for_v2(0, n, LOCAL_GRAIN(n),
+        emu_local_for_copy_long_worker, dst, src
+    );
+}

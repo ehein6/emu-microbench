@@ -54,7 +54,23 @@ aggregate across all nodelets.
 This header aims to implement all the intrinsics in `memoryweb.h` for the x86 architecture.
 This way you can compile and test your code quickly in a native environment before moving to 
 the Emu simulator or hardware.
+
+## Other Files
+
+This repo contains the following files in addition to the above features:
  
 
+### hooks
 
+### emu_grain_helpers
+
+### emu_for_2d
+
+### emu_sort_local
+
+### emu_scatter_gather
+
+### hooks
+
+### layout
     

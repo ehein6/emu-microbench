@@ -1,3 +1,8 @@
+/*! \file emu_for_2D
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Source file for Emu 2D chunked array objects and access
+ */
 #include "emu_chunked_array.h"
 #include <cilk/cilk.h>
 
@@ -36,9 +41,9 @@ for num_args in xrange(6):
             void (*worker)(emu_chunked_array * array, long begin, long end${arg_decls})
             ${arg_decls})
         {
-            long n = emu_chunked_array_size(array);
             // Each thread will be responsible for the elements on one nodelet
-            long local_n = n / NODELETS();
+            long n = array->num_elements;
+            long local_n = 1 << array->log2_elements_per_chunk;
             // Spawn a thread on each nodelet
             for (long i = 0; i < NODELETS(); ++i) {
                 long begin = local_n * i;
@@ -70,9 +75,9 @@ emu_chunked_array_apply_v0(emu_chunked_array * array, long grain,
     void (*worker)(emu_chunked_array * array, long begin, long end)
     )
 {
-    long n = emu_chunked_array_size(array);
     // Each thread will be responsible for the elements on one nodelet
-    long local_n = n / NODELETS();
+    long n = array->num_elements;
+    long local_n = 1 << array->log2_elements_per_chunk;
     // Spawn a thread on each nodelet
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
@@ -101,9 +106,9 @@ emu_chunked_array_apply_v1(emu_chunked_array * array, long grain,
     void (*worker)(emu_chunked_array * array, long begin, long end, void * arg1)
     , void * arg1)
 {
-    long n = emu_chunked_array_size(array);
     // Each thread will be responsible for the elements on one nodelet
-    long local_n = n / NODELETS();
+    long n = array->num_elements;
+    long local_n = 1 << array->log2_elements_per_chunk;
     // Spawn a thread on each nodelet
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
@@ -132,9 +137,9 @@ emu_chunked_array_apply_v2(emu_chunked_array * array, long grain,
     void (*worker)(emu_chunked_array * array, long begin, long end, void * arg1, void * arg2)
     , void * arg1, void * arg2)
 {
-    long n = emu_chunked_array_size(array);
     // Each thread will be responsible for the elements on one nodelet
-    long local_n = n / NODELETS();
+    long n = array->num_elements;
+    long local_n = 1 << array->log2_elements_per_chunk;
     // Spawn a thread on each nodelet
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
@@ -163,9 +168,9 @@ emu_chunked_array_apply_v3(emu_chunked_array * array, long grain,
     void (*worker)(emu_chunked_array * array, long begin, long end, void * arg1, void * arg2, void * arg3)
     , void * arg1, void * arg2, void * arg3)
 {
-    long n = emu_chunked_array_size(array);
     // Each thread will be responsible for the elements on one nodelet
-    long local_n = n / NODELETS();
+    long n = array->num_elements;
+    long local_n = 1 << array->log2_elements_per_chunk;
     // Spawn a thread on each nodelet
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
@@ -194,9 +199,9 @@ emu_chunked_array_apply_v4(emu_chunked_array * array, long grain,
     void (*worker)(emu_chunked_array * array, long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4)
     , void * arg1, void * arg2, void * arg3, void * arg4)
 {
-    long n = emu_chunked_array_size(array);
     // Each thread will be responsible for the elements on one nodelet
-    long local_n = n / NODELETS();
+    long n = array->num_elements;
+    long local_n = 1 << array->log2_elements_per_chunk;
     // Spawn a thread on each nodelet
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;
@@ -225,9 +230,9 @@ emu_chunked_array_apply_v5(emu_chunked_array * array, long grain,
     void (*worker)(emu_chunked_array * array, long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4, void * arg5)
     , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5)
 {
-    long n = emu_chunked_array_size(array);
     // Each thread will be responsible for the elements on one nodelet
-    long local_n = n / NODELETS();
+    long n = array->num_elements;
+    long local_n = 1 << array->log2_elements_per_chunk;
     // Spawn a thread on each nodelet
     for (long i = 0; i < NODELETS(); ++i) {
         long begin = local_n * i;

@@ -1,3 +1,8 @@
+/*! \file emu_for_local
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Header file for Emu local for
+ */
 #pragma once
 
 #include "emu_grain_helpers.h"
@@ -50,3 +55,15 @@ emu_local_for_v5(long begin, long end, long grain,
     , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5);
 
 /* [[[end]]] */
+
+/**
+ * Set each value of @c array to @c value in parallel
+ * @param array Pointer to array to modify
+ * @param n Number of elements in the array
+ * @param value Value to set
+ */
+void
+emu_local_for_set_long(long * array, long n, long value);
+
+void
+emu_local_for_copy_long(long * dst, long * src, long n);
