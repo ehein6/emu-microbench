@@ -1,3 +1,8 @@
+/*! \file hooks
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Source file for hooks for timing and other region measurements
+ */
 #include "hooks.h"
 #include <stdio.h>
 #include <string.h>
@@ -8,12 +13,6 @@
 
 #ifdef __le64__
 #include <memoryweb.h>
-#ifdef BUILD_FOR_EMUSIM
-#define CLOCK_RATE (300e6)
-#else
-// 150 MHz clock on current EMU FPGA's
-#define CLOCK_RATE (150e6)
-#endif
 #else
 #include "memoryweb_x86.h"
 #endif
@@ -35,6 +34,24 @@ hooks_output_file()
         }
     }
     return fp;
+}
+
+// Singleton controlling initialization of core_clk_mhz
+static long core_clk_mhz = 0;
+static long get_core_clk_mhz() {
+#ifndef __le64__
+    return MEMORYWEB_X86_CLOCK_RATE;
+#else
+    if (core_clk_mhz == 0) {
+        const char* str = getenv("CORE_CLK_MHZ");
+        if (str){
+            core_clk_mhz = atol(str);
+        } else {
+            core_clk_mhz = 300;
+        }
+    }
+    return core_clk_mhz;
+#endif
 }
 
 // The simulator can only handle one region of interest
@@ -121,7 +138,7 @@ double hooks_region_end()
     hooks_timestamp += CLOCK();
 
     // Add time elapsed to result string
-    double time_ms = hooks_timestamp * 1000.0 / CLOCK_RATE;
+    double time_ms = (1000.0 * hooks_timestamp) / (get_core_clk_mhz()*1e6);
     hooks_add_field("time_ms", "%3.2f", time_ms);
     hooks_add_field("ticks", "%li", hooks_timestamp);
 

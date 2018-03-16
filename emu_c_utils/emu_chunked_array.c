@@ -1,3 +1,8 @@
+/*! \file emu_chunked_array
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Source file for Emu chunked array struct and access methods
+ */
 #include "emu_chunked_array.h"
 
 #if defined(__le64__)
@@ -6,38 +11,37 @@
 #include "memoryweb_x86.h"
 #endif
 
+#include "emu_c_utils.h"
 #include <assert.h>
-#include <stdlib.h>
-
 
 // chunked array type
 
 emu_chunked_array *
-emu_chunked_array_new(size_t num_elements, size_t element_size)
+emu_chunked_array_replicated_new(long num_elements, long element_size)
 {
-    emu_chunked_array * rtn = calloc(sizeof(emu_chunked_array), 1);
+    emu_chunked_array * rtn = mw_mallocrepl(sizeof(emu_chunked_array));
     assert(rtn);
-    emu_chunked_array_init(rtn, num_elements, element_size);
+    emu_chunked_array_replicated_init(rtn, num_elements, element_size);
     return rtn;
 }
 
-static size_t
-div_round_up(size_t num, size_t den)
+static long
+div_round_up(long num, long den)
 {
     assert(den != 0);
     return (num + den - 1) / den;
 }
 
-static size_t
-log2_round_up(size_t x)
+static long
+log2_round_up(long x)
 {
     assert(x != 0);
     if (x == 1) { return 0; }
     else { return PRIORITY(x - 1) + 1; }
 }
 
-void
-emu_chunked_array_init(emu_chunked_array * self, size_t num_elements, size_t element_size)
+static void
+emu_chunked_array_init(emu_chunked_array * self, long num_elements, long element_size)
 {
     assert(num_elements > 0);
     self->num_elements = num_elements;
@@ -47,7 +51,7 @@ emu_chunked_array_init(emu_chunked_array * self, size_t num_elements, size_t ele
     self->num_chunks = NODELETS();
 
     // How many elements in each chunk?
-    size_t elements_per_chunk = div_round_up(num_elements, self->num_chunks);
+    long elements_per_chunk = div_round_up(num_elements, self->num_chunks);
     // Round up to nearest power of two
     self->log2_elements_per_chunk = log2_round_up(elements_per_chunk);
     elements_per_chunk = 1 << self->log2_elements_per_chunk;
@@ -58,7 +62,15 @@ emu_chunked_array_init(emu_chunked_array * self, size_t num_elements, size_t ele
 }
 
 void
-emu_chunked_array_deinit(emu_chunked_array * self)
+emu_chunked_array_replicated_init(emu_chunked_array * self, long num_elements, long element_size)
+{
+    emu_chunked_array *self_0 = mw_get_nth(self, 0);
+    emu_chunked_array_init(self_0, num_elements, element_size);
+    REPLICATE(self_0);
+}
+
+void
+emu_chunked_array_replicated_deinit(emu_chunked_array * self)
 {
     assert(self->data);
     mw_free(self->data);
@@ -70,40 +82,14 @@ emu_chunked_array_deinit(emu_chunked_array * self)
 }
 
 void
-emu_chunked_array_free(emu_chunked_array * self)
+emu_chunked_array_replicated_free(emu_chunked_array * self)
 {
-    emu_chunked_array_deinit(self);
-    free(self);
+    emu_chunked_array_replicated_deinit(self);
+    mw_free(self);
 }
 
 
-void *
-emu_chunked_array_index(emu_chunked_array * self, size_t i)
-{
-    assert(self->data);
-
-    // Array bounds check
-    size_t elements_per_chunk = 1 << self->log2_elements_per_chunk;
-    assert(i < self->num_chunks * elements_per_chunk);
-
-    // First we determine which chunk holds element i
-    // i / N
-    size_t chunk = i >> self->log2_elements_per_chunk;
-
-    // Then calculate the position of element i within the chunk
-    // i % N
-    size_t mask = elements_per_chunk - 1;
-    size_t offset = i & mask;
-
-    // return data[i / N][i % N]
-    void * base = self->data[chunk];
-    //void * base = mw_arrayindex((long*)self->data, chunk, self->num_chunks, elements_per_chunk * self->element_size);
-    void * ptr = base + (offset * self->element_size);
-    return ptr;
-}
-
-
-size_t
+long
 emu_chunked_array_size(emu_chunked_array * self)
 {
     assert(self->data);

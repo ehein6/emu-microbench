@@ -1,30 +1,30 @@
+/*! \file emu_grain_helpers
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Header file for Emu grain size helpers
+ */
 #pragma once
 
-// TODO get max number of threads on platform
-#ifdef __le64__
-// Emu Chick prototype, 8 nodes
-//#define GLOBAL_NUM_THREADS 4096
-// Emu Chick prototype, single node
-#define GLOBAL_NUM_THREADS 512
+#if defined(__le64__)
+#include <memoryweb.h>
 #else
-#define GLOBAL_NUM_THREADS 4
+#include "memoryweb_x86.h"
 #endif
 
-#ifdef __le64__
-// Emu Chick prototype, single node
-#define LOCAL_NUM_THREADS 64
-#else
-#define LOCAL_NUM_THREADS 4
-#endif
+#define THREADS_PER_GC (64L)
+
+long get_gcs_per_nodelet();
 
 static inline long
 GLOBAL_GRAIN(long n)
 {
-    return n > GLOBAL_NUM_THREADS ? (n/GLOBAL_NUM_THREADS) : 1;
+    long global_num_threads = THREADS_PER_GC * get_gcs_per_nodelet() * NODELETS();
+    return n > global_num_threads ? (n/global_num_threads) : 1;
 }
 
 static inline long
 LOCAL_GRAIN(long n)
 {
-    return n > LOCAL_NUM_THREADS ? (n/LOCAL_NUM_THREADS) : 1;
+    long local_num_threads = THREADS_PER_GC * get_gcs_per_nodelet();
+    return n > local_num_threads ? (n/local_num_threads) : 1;
 }

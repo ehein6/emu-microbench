@@ -1,13 +1,15 @@
+/*! \file emu_for_local
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Source file for Emu local for
+ */
 #include <cilk/cilk.h>
 #include "emu_grain_helpers.h"
 
 #ifdef __le64__
 #include <memoryweb.h>
 #else
-// Mimic memoryweb behavior on x86
-// TODO eventually move this all to its own header file
-#define NODELETS() (1)
-#define noinline __attribute__ ((noinline))
+#include "memoryweb_x86.h"
 #endif
 
 

@@ -1,3 +1,8 @@
+/*! \file hooks
+ \date March 15, 2018
+ \author Eric Hein 
+ \brief Header file for hooks for timing and other region measurements
+ */
 #pragma once
 
 #include <stdint.h>
