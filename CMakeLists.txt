@@ -40,6 +40,7 @@ add_executable(global_stream global_stream.c)
 add_executable(global_reduce global_reduce.c)
 add_executable(pointer_chase pointer_chase.c)
 add_executable(ping_pong ping_pong.c)
+add_executable(local_sort local_sort.c)
 
 # C++ benchmarks
 # Include support libraries
