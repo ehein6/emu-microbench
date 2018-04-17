@@ -40,6 +40,7 @@ hooks_output_file()
 static long core_clk_mhz = 0;
 static long get_core_clk_mhz() {
 #ifndef __le64__
+    (void)core_clk_mhz;
     return MEMORYWEB_X86_CLOCK_RATE;
 #else
     if (core_clk_mhz == 0) {
