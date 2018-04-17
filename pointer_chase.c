@@ -143,7 +143,9 @@ memcpy_long_worker(long begin, long end, void * arg1, void * arg2)
 {
     long * dst = (long*) arg1;
     long * src = (long*) arg2;
-    memcpy(dst + begin, src + begin, (end-begin) * sizeof(long));
+    for (long i = begin; i < end; ++i) {
+        dst[i] = src[i];
+    }
 }
 
 // Shuffles the index array at a block level
