@@ -36,11 +36,11 @@ void
 global_stream_init(global_stream_data * data, long n)
 {
     data->n = n;
-    emu_chunked_array_init(&data->array_a, n, sizeof(long));
+    emu_chunked_array_replicated_init(&data->array_a, n, sizeof(long));
     data->a = (long**)data->array_a.data;
-    emu_chunked_array_init(&data->array_b, n, sizeof(long));
+    emu_chunked_array_replicated_init(&data->array_b, n, sizeof(long));
     data->b = (long**)data->array_b.data;
-    emu_chunked_array_init(&data->array_c, n, sizeof(long));
+    emu_chunked_array_replicated_init(&data->array_c, n, sizeof(long));
     data->c = (long**)data->array_c.data;
 
 #ifdef __le64__
@@ -52,17 +52,17 @@ global_stream_init(global_stream_data * data, long n)
     }
 #endif
 
-    emu_chunked_array_set_long(&data->array_a, 1);
-    emu_chunked_array_set_long(&data->array_b, 2);
-    emu_chunked_array_set_long(&data->array_c, 0);
+//    emu_chunked_array_set_long(&data->array_a, 1);
+//    emu_chunked_array_set_long(&data->array_b, 2);
+//    emu_chunked_array_set_long(&data->array_c, 0);
 }
 
 void
 global_stream_deinit(global_stream_data * data)
 {
-    emu_chunked_array_deinit(&data->array_a);
-    emu_chunked_array_deinit(&data->array_b);
-    emu_chunked_array_deinit(&data->array_c);
+    emu_chunked_array_replicated_deinit(&data->array_a);
+    emu_chunked_array_replicated_deinit(&data->array_b);
+    emu_chunked_array_replicated_deinit(&data->array_c);
 }
 
 static noinline void
@@ -341,9 +341,9 @@ int main(int argc, char** argv)
         LOG("Mode %s not implemented!", args.mode);
     }
 
-    LOG("Validating results...");
-    global_stream_validate(&data);
-    LOG("OK\n");
+//    LOG("Validating results...");
+//    global_stream_validate(&data);
+//    LOG("OK\n");
 
     global_stream_deinit(&data);
     return 0;

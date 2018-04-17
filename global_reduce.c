@@ -32,7 +32,7 @@ void
 global_reduce_init(global_reduce_data * data, long n)
 {
     data->n = n;
-    emu_chunked_array_init(&data->array_a, n, sizeof(long));
+    emu_chunked_array_replicated_init(&data->array_a, n, sizeof(long));
     data->a = (long**)data->array_a.data;
 
 #ifdef __le64__
@@ -50,7 +50,7 @@ global_reduce_init(global_reduce_data * data, long n)
 void
 global_reduce_deinit(global_reduce_data * data)
 {
-    emu_chunked_array_deinit(&data->array_a);
+    emu_chunked_array_replicated_deinit(&data->array_a);
 }
 
 // serial - just a regular for loop
