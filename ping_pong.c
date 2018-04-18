@@ -66,6 +66,26 @@ ping_pong_global(ping_pong_data * data)
 }
 
 void
+ping_pong_global_sweep(ping_pong_data * data, long src_node, long dst_node)
+{
+    long * a = data->a;
+    // Each iteration forces four migrations
+    long n = data->num_migrations / 4;
+
+    // Pick a nodelet on each node
+    const long nlets_per_node = 8;
+    long src_nlet = src_node * nlets_per_node;
+    long dst_nlet = dst_node * nlets_per_node;
+
+    for (long i = 0; i < n; ++i) {
+        MIGRATE(&a[dst_nlet]);
+        MIGRATE(&a[src_nlet]);
+        MIGRATE(&a[dst_nlet]);
+        MIGRATE(&a[src_nlet]);
+    }
+}
+
+void
 ping_pong_spawn_local(ping_pong_data * data)
 {
     for (long i = 0; i < data->num_threads; ++i) {
@@ -84,6 +104,29 @@ ping_pong_spawn_global(ping_pong_data * data)
     }
 }
 
+void
+ping_pong_spawn_global_sweep(ping_pong_data * data)
+{
+    runtime_assert(NODELETS() > 8,
+        "Global ping pong requires a configuration with more than one node (more than 8 nodelets)"
+    );
+
+    const long nlets_per_node = 8;
+    const long num_nodes = NODELETS() / nlets_per_node;
+
+    for (long src_node = 0; src_node < num_nodes; ++src_node) {
+        for (long dst_node = 0; dst_node < num_nodes; ++dst_node) {
+            if (dst_node <= src_node) { continue; }
+
+//            LOG("Migrating between node %li and node %li\n", src_node, dst_node);
+
+            for (long i = 0; i < data->num_threads; ++i) {
+                cilk_spawn ping_pong_global_sweep(data, src_node, dst_node);
+            }
+            cilk_sync;
+        }
+    }
+}
 
 void ping_pong_run(
     ping_pong_data * data,
@@ -96,6 +139,7 @@ void ping_pong_run(
         hooks_region_begin(name);
         benchmark(data);
         double time_ms = hooks_region_end();
+        if (time_ms == 0) return; // simulator was run without timing mode enabled
         double migrations_per_second = (data->num_migrations) / (time_ms/1e3);
         LOG("%3.2f million migrations per second\n", migrations_per_second / (1e6));
         LOG("Latency (amortized): %3.2f us\n", (1.0 / migrations_per_second) * 1e6);
@@ -137,6 +181,8 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(ping_pong_spawn_local);
     } else if (!strcmp(args.mode, "global")) {
         RUN_BENCHMARK(ping_pong_spawn_global);
+    } else if (!strcmp(args.mode, "global_sweep")) {
+        RUN_BENCHMARK(ping_pong_spawn_global_sweep);
     } else {
         LOG("Mode %s not implemented!", args.mode);
     }
