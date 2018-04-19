@@ -4,7 +4,9 @@
  \brief Header file for Emu memory web on x86
  */
 
-#pragma once
+#ifndef _MEMORYWEB_H
+#define _MEMORYWEB_H
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -142,4 +144,6 @@ REMOTE_MIN(volatile long * ptr, long value) { ATOMIC_MINMS(ptr, value); }
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
