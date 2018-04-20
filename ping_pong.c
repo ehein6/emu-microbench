@@ -86,6 +86,21 @@ ping_pong_global_sweep(ping_pong_data * data, long src_node, long dst_node)
 }
 
 void
+ping_pong_global_sweep_nlets(ping_pong_data * data, long src_nlet, long dst_nlet)
+{
+    long * a = data->a;
+    // Each iteration forces four migrations
+    long n = data->num_migrations / 4;
+
+    for (long i = 0; i < n; ++i) {
+        MIGRATE(&a[dst_nlet]);
+        MIGRATE(&a[src_nlet]);
+        MIGRATE(&a[dst_nlet]);
+        MIGRATE(&a[src_nlet]);
+    }
+}
+
+void
 ping_pong_spawn_local(ping_pong_data * data)
 {
     for (long i = 0; i < data->num_threads; ++i) {
@@ -118,12 +133,46 @@ ping_pong_spawn_global_sweep(ping_pong_data * data)
         for (long dst_node = 0; dst_node < num_nodes; ++dst_node) {
             if (dst_node <= src_node) { continue; }
 
-//            LOG("Migrating between node %li and node %li\n", src_node, dst_node);
+            LOG("Migrating between node %li and node %li\n", src_node, dst_node);
 
             for (long i = 0; i < data->num_threads; ++i) {
                 cilk_spawn ping_pong_global_sweep(data, src_node, dst_node);
             }
             cilk_sync;
+        }
+    }
+}
+
+void
+ping_pong_spawn_global_sweep_nlets(ping_pong_data * data)
+{
+    const long nlets_per_node = 8;
+    const long num_nodes = NODELETS() / nlets_per_node;
+
+    for (long src_nlet = 0; src_nlet < NODELETS(); ++src_nlet) {
+        for (long dst_nlet = 0; dst_nlet < NODELETS(); ++dst_nlet) {
+            // Skip duplicate trials
+            if (dst_nlet <= src_nlet) { continue; }
+            // Only intra-node migration trials
+            if (dst_nlet / num_nodes == src_nlet / num_nodes) { continue; }
+
+            LOG("Migrating between nlet %li and nlet %li\n", src_nlet, dst_nlet);
+
+            hooks_set_attr_i64("src_nlet", src_nlet);
+            hooks_set_attr_i64("dst_nlet", dst_nlet);
+            hooks_region_begin("ping_pong");
+
+            for (long i = 0; i < data->num_threads; ++i) {
+                cilk_spawn ping_pong_global_sweep_nlets(data, src_nlet, dst_nlet);
+            }
+            cilk_sync;
+
+            double time_ms = hooks_region_end();
+            if (time_ms != 0) { // simulator was run without timing mode enabled
+                double migrations_per_second = (data->num_migrations) / (time_ms/1e3);
+                LOG("%3.2f million migrations per second\n", migrations_per_second / (1e6));
+                LOG("Latency (amortized): %3.2f us\n", (1.0 / migrations_per_second) * 1e6);
+            }
         }
     }
 }
@@ -183,6 +232,8 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(ping_pong_spawn_global);
     } else if (!strcmp(args.mode, "global_sweep")) {
         RUN_BENCHMARK(ping_pong_spawn_global_sweep);
+    } else if (!strcmp(args.mode, "global_sweep_nlets")) {
+        RUN_BENCHMARK(ping_pong_spawn_global_sweep_nlets);
     } else {
         LOG("Mode %s not implemented!", args.mode);
     }
