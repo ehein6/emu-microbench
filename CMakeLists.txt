@@ -14,7 +14,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus")
 
 # Disable some errant warnings caused by cilk_for
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-uninitialized -Wno-cilk-loop-control-var-modification")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused -Wno-uninitialized -Wno-cilk-loop-control-var-modification")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-uninitialized -Wno-cilk-loop-control-var-modification")
 
 # Arch-specific directives
