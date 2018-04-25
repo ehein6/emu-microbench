@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <hooks.h>
+#include <emu_for_1d.h>
 
 #include "emu_for_local.h"
 
@@ -134,7 +135,21 @@ relink_worker(long begin, long end, void * arg1)
         long b = data->indices[i == data->n - 1 ? 0 : i + 1];
         data->pool[a]->next = data->pool[b];
         // Initialize payload
-        data->pool[a]->weight = 1;
+        data->pool[a]->weight = i;
+    }
+}
+
+static void
+relink_worker_1d(long * array, long begin, long end, void * arg1)
+{
+    pointer_chase_data* data = (pointer_chase_data *)arg1;
+    for (long i = begin; i < end; i += NODELETS()) {
+        // String pointers together according to the index
+        long a = data->indices[i];
+        long b = data->indices[i == data->n - 1 ? 0 : i + 1];
+        data->pool[a]->next = mw_arrayindex((long*)data->pool, (size_t)b, (size_t)data->n, sizeof(node)); //data->pool[b];
+        // Initialize payload
+        data->pool[a]->weight = i;
     }
 }
 
@@ -197,7 +212,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     data->heads = (node**)mw_malloc1dlong(num_threads);
     runtime_assert(data->heads != NULL, "Failed to allocate pointers for each thread");
     // Make an array with entries 1 through n
-    data->indices = malloc(n * sizeof(long));
+    data->indices = mw_mallocrepl(n * sizeof(long));
     runtime_assert(data->indices != NULL, "Failed to allocate local index array");
 
     LOG("Replicating pointers...\n");
@@ -276,18 +291,31 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         );
     }
 
+    LOG("Scattering index array...\n");
+    for (long i = 1; i < NODELETS(); ++i) {
+        cilk_spawn memcpy_long_worker(0, n, mw_get_nth(data->indices, i), mw_get_nth(data->indices, 0));
+    }
+    cilk_sync;
+
     LOG("Linking nodes together...\n");
-    // String pointers together according to the index
-    emu_local_for_v1(0, data->n, LOCAL_GRAIN(data->n),
-        relink_worker, data
+    emu_1d_array_apply_v1((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
+        relink_worker_1d, data
     );
 
     LOG("Chop\n");
     // Chop up the list so there is one chunk per thread
     long chunk_size = n/num_threads;
+    LOG("Each thread will traverse %li elements\n", chunk_size);
     for (long i = 0; i < data->num_threads; ++i) {
         long first_index = i * chunk_size;
         long last_index = (i+1) * chunk_size - 1;
+
+
+        LOG("Thread %li will start at element %li and end at element %li\n", i,
+            data->indices[first_index],
+            data->indices[last_index]
+        );
+
         // Store a pointer for this thread's head of the list
         data->heads[i] = data->pool[data->indices[first_index]];
         // Set this thread's tail to null so it knows where to stop
@@ -386,7 +414,9 @@ void pointer_chase_run(
         hooks_region_begin(name);
         benchmark(data);
         double time_ms = hooks_region_end();
-        runtime_assert(emu_replicated_reduce_sum_long(&data->sum) == data->n, "Validation FAILED!");
+        // Sum of all integers from 0 to n
+        long expected_sum = (data->n * (data->n - 1)) / 2;
+        runtime_assert(emu_replicated_reduce_sum_long(&data->sum) == expected_sum, "Validation FAILED!");
         double bytes_per_second = time_ms == 0 ? 0 :
             (data->n * sizeof(node)) / (time_ms/1000);
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
@@ -508,8 +538,10 @@ int main(int argc, char** argv)
     LOG("Initializing %s array with %li elements (%li MB total, %li MB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
     fflush(stdout);
+    hooks_region_begin("init");
     pointer_chase_data_init(&data,
         n, args.block_size, args.num_threads, sort_mode);
+    hooks_region_end();
     LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads); fflush(stdout);
 
     #define RUN_BENCHMARK(X) pointer_chase_run(&data, args.spawn_mode, X, args.num_trials)
