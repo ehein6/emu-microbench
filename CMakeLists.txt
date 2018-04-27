@@ -41,6 +41,7 @@ add_executable(global_reduce global_reduce.c)
 add_executable(pointer_chase pointer_chase.c)
 add_executable(ping_pong ping_pong.c)
 add_executable(local_sort local_sort.c)
+add_executable(bulk_copy bulk_copy.c)
 
 # C++ benchmarks
 # Include support libraries
