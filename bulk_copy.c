@@ -63,6 +63,7 @@ bulk_copy_data_init(bulk_copy_data * data, const char* alloc_mode, long n, long 
 
     emu_local_for_set_long(data->src, n, 1);
     emu_local_for_set_long(data->dst, n, 2);
+    mw_free(local_to);
 }
 
 void
@@ -86,10 +87,23 @@ bulk_copy_serial(bulk_copy_data * data)
     }
 }
 
+static noinline void
+emu_local_for_copy_long_worker(long begin, long end, void * arg1, void * arg2)
+{
+    long * dst = arg1;
+    long * src = arg2;
+    for (long i = begin; i < end; ++i) {
+        dst[i] = src[i];
+    }
+}
+
 noinline void
 bulk_copy_emu_for(bulk_copy_data * data)
 {
-    emu_local_for_copy_long(data->dst, data->src, data->n);
+//    emu_local_for_copy_long(data->dst, data->src, data->n);
+    emu_local_for_v2(0, data->n, data->n / data->num_threads,
+        emu_local_for_copy_long_worker, data->dst, data->src
+    );
 }
 
 
@@ -104,7 +118,7 @@ void bulk_copy_run(
         benchmark(data);
         double time_ms = hooks_region_end();
         double bytes_per_second = time_ms == 0 ? 0 :
-            (data->n * sizeof(long)) / (time_ms/1000);
+            (data->n * sizeof(long) * 2) / (time_ms/1000);
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
