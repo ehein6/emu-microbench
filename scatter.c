@@ -147,13 +147,13 @@ scatter_tree(long * buffer, long n, long nlet_begin, long nlet_end)
     long * local = mw_get_nth(buffer, NODE_ID());
     long * remote = mw_get_nth(buffer, nlet_mid);
 
-    LOG("nlet[%li]: Copy from %li to %li\n", NODE_ID(), NODE_ID(), nlet_mid);
+//    LOG("nlet[%li]: Copy from %li to %li\n", NODE_ID(), NODE_ID(), nlet_mid);
     // Copy to nlet_mid
     emu_local_for_v2(0, n, LOCAL_GRAIN_MIN(n, 64),
         copy_long_worker, remote, local
     );
 
-    LOG("nlet[%li]: Spawn scatter_tree(%li - %li)\n", NODE_ID(), nlet_mid, nlet_end);
+//    LOG("nlet[%li]: Spawn scatter_tree(%li - %li)\n", NODE_ID(), nlet_mid, nlet_end);
 
     // Spawn at target and recurse through my range
     cilk_spawn scatter_tree(remote, n, nlet_mid, nlet_end);
