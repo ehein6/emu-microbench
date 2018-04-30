@@ -18,8 +18,8 @@ extern "C" {
 
 // Mimic memoryweb behavior on x86
 // TODO eventually move this all to its own header file
-#define NODE_ID() (0)
-#define NODELETS() (1)
+#define NODE_ID() (0L)
+#define NODELETS() (1L)
 #define replicated
 #define PRIORITY(X) (63-__builtin_clzll(X))
 #define MIGRATE(X) ((void)X)
