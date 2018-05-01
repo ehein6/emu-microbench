@@ -43,6 +43,9 @@ def iterSuite(suite):
 def check_local_config(local_config):
     """Make sure paths to input sets and executables are valid"""
 
+    if local_config["platform"] in ["emu", "emuchick"]:
+        return
+
     try:
         for benchmark, path in local_config["binaries"].iteritems():
             if not os.path.isfile(path):
@@ -98,6 +101,11 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
         export LOGFILE="{logfile}"
         export OUTFILE="{outfile}"
         export HOOKS_FILENAME=$OUTFILE
+
+        if [ -f $LOGFILE ]; then
+            echo "Skipping {name}; output exists"
+            exit 0
+        fi
         echo '{json}' | tee $LOGFILE $OUTFILE  >/dev/null
         echo `hostname` | tee -a $LOGFILE $OUTFILE >/dev/null
         """
@@ -116,7 +124,7 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
     # Emu hardware (multi node) command line
     elif local_config["platform"] == "emuchick":
         template += """
-        emu_multinode_exec 143.215.138.20 0 {exe} -- \\"""
+        emu_multinode_exec 0 {exe} -- \\"""
 
     # Emu simulator command line
     elif local_config["platform"] == "emusim":
