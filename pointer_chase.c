@@ -330,6 +330,60 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 }
 
 void
+pointer_chase_data_load(pointer_chase_data * data, long n, long block_size, long num_threads, enum sort_mode sort_mode, const char* path)
+{
+    data->n = n;
+    data->block_size = block_size;
+    data->num_threads = num_threads;
+    data->sort_mode = sort_mode;
+    // Allocate N nodes, striped across nodelets
+    data->pool = mw_malloc2d(n, sizeof(node));
+    assert(data->pool);
+    // Store a pointer for this thread's head of the list
+    data->heads = (node**)mw_malloc1dlong(num_threads);
+    assert(data->heads);
+    // Make an array with entries 1 through n
+    data->indices = malloc(n * sizeof(long));
+    assert(data->indices);
+
+    LOG("Replicating pointers...\n");
+#ifdef __le64__
+    // Replicate pointers to all other nodelets
+    data = mw_get_nth(data, 0);
+    for (long i = 1; i < NODELETS(); ++i) {
+        pointer_chase_data * remote_data = mw_get_nth(data, i);
+        memcpy(remote_data, data, sizeof(pointer_chase_data));
+    }
+#endif
+
+    FILE * fp = fopen(path, "rb");
+    if (!fp) { LOG("Failed to open %s\n", path); exit(1); }
+    size_t rv = fread(data->indices, sizeof(long), (size_t)n, fp);
+    if (rv != n) { LOG("Wrong number of bytes in file\n"); exit(1); }
+    fclose(fp);
+    LOG("Loaded index array from %s\n", path);
+
+    LOG("Linking nodes together...\n");
+    // String pointers together according to the index
+    emu_local_for_v1(0, data->n, LOCAL_GRAIN(data->n),
+        relink_worker, data
+    );
+
+    LOG("Chop\n");
+    // Chop up the list so there is one chunk per thread
+    long chunk_size = n/num_threads;
+    for (long i = 0; i < data->num_threads; ++i) {
+        long first_index = i * chunk_size;
+        long last_index = (i+1) * chunk_size - 1;
+        // Store a pointer for this thread's head of the list
+        data->heads[i] = data->pool[data->indices[first_index]];
+        // Set this thread's tail to null so it knows where to stop
+        data->pool[data->indices[last_index]]->next = NULL;
+    }
+}
+
+
+void
 pointer_chase_data_deinit(pointer_chase_data * data)
 {
     mw_free(data->pool);
@@ -431,6 +485,8 @@ static const struct option long_options[] = {
     {"block_size"   , required_argument},
     {"spawn_mode"   , required_argument},
     {"sort_mode"    , required_argument},
+    {"dump"         , no_argument},
+    {"load"         , no_argument},
     {"help"         , no_argument},
     {NULL}
 };
@@ -444,6 +500,8 @@ print_help(const char* argv0)
     LOG("\t--block_size         Number of elements to swap at a time\n");
     LOG("\t--spawn_mode         How to spawn the threads\n");
     LOG("\t--sort_mode          How to shuffle the array\n");
+    LOG("\t--dump               Dump index array to disk and exit\n");
+    LOG("\t--load               Load index array from disk instead of generating it\n");
     LOG("\t--help               Print command line help\n");
 }
 
@@ -453,6 +511,8 @@ typedef struct pointer_chase_args {
     long block_size;
     const char* spawn_mode;
     const char* sort_mode;
+    bool do_dump;
+    bool do_load;
 } pointer_chase_args;
 
 static struct pointer_chase_args
@@ -464,6 +524,8 @@ parse_args(int argc, char *argv[])
     args.block_size = 1;
     args.spawn_mode = "serial_spawn";
     args.sort_mode = "block_shuffle";
+    args.do_dump = false;
+    args.do_load = false;
 
     int option_index;
     while (true)
@@ -489,6 +551,10 @@ parse_args(int argc, char *argv[])
             args.spawn_mode = optarg;
         } else if (!strcmp(option_name, "sort_mode")) {
             args.sort_mode = optarg;
+        } else if (!strcmp(option_name, "dump")) {
+            args.do_dump = true;
+        } else if (!strcmp(option_name, "load")) {
+            args.do_load = true;
         } else if (!strcmp(option_name, "help")) {
             print_help(argv[0]);
             exit(1);
@@ -525,9 +591,31 @@ int main(int argc, char** argv)
     long mbytes_per_nodelet = mbytes / NODELETS();
     LOG("Initializing %s array with %li elements (%li MB total, %li MB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
-    fflush(stdout);
-    pointer_chase_data_init(&data,
-        n, args.block_size, args.num_threads, sort_mode);
+
+    char dump_path[128];
+    snprintf(dump_path, 128, "%li.%li.%s", args.log2_num_elements, args.block_size, args.sort_mode);
+
+    // Initialize the array
+    if (args.do_load) {
+        pointer_chase_data_load(&data,
+            n, args.block_size, args.num_threads, sort_mode, dump_path);
+    } else {
+        pointer_chase_data_init(&data,
+            n, args.block_size, args.num_threads, sort_mode);
+    }
+
+    // Dump array to disk
+    if (args.do_dump) {
+        FILE * fp = fopen(dump_path, "wb");
+        if (!fp) { LOG("Failed to open %s\n", dump_path); exit(1); }
+        size_t rv = fwrite(data.indices, sizeof(long), (size_t)data.n, fp);
+        if (rv != data.n) { LOG("Failed to dump\n"); exit(1); }
+        fclose(fp);
+
+        LOG("Saved index array to %s, exiting\n", dump_path);
+        exit(0);
+    }
+
     LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads); fflush(stdout);
 
     if (!strcmp(args.spawn_mode, "serial_spawn")) {
