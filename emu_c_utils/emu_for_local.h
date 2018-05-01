@@ -2,9 +2,9 @@
 
 // TODO get max number of threads on platform
 #ifdef __le64__
-#define LOCAL_GRAIN(X) (X/64)
+#define LOCAL_GRAIN(X) (((X)/64) > 0 ? ((X)/64) : 1)
 #else
-#define LOCAL_GRAIN(X) (X/4)
+#define LOCAL_GRAIN(X) (((X)/4) > 0 ? ((X)/4) : 1)
 #endif
 
 /*[[[cog
