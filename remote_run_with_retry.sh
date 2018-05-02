@@ -3,9 +3,6 @@
 # Executes a list of bash scripts on the Emu chick
 # If a job times out or crashes, automatically reboots and continues
 
-# Prevent ssh from gobbling up stdin
-
-
 # Reboot the chick
 function reboot_chick()
 {
@@ -17,9 +14,19 @@ function reboot_chick()
 # Run a script on the remote node
 function run_script()
 {
+    # Copy script to remote node
     scp "$script" "$remote_node:$script"
+    if [ $? -ne 0 ]; then return 1; fi
+
+    # Run script with timeout
     timeout "$time_limit" ssh -n "$remote_node" "$script"
+    retval="$?"
+
+    # Get output
     scp "$remote_node:$output" "$output"
+
+    # Return error code
+    return "$retval"
 }
 
 # Check for a system error in the script output
@@ -47,7 +54,7 @@ remote_node="n0"
 # Working directory, relative on host, within $HOME on remote node
 workdir="$1"
 # Timeout for each job
-time_limit="15m"
+time_limit="6m"
 
 # Check for valid script directory
 if [ ! -f "$1/jobnames" ]; then
@@ -73,9 +80,7 @@ while read name; do
         echo "Output file is $output"
     fi
 
-    run_script
-
-    check_output
+    run_script && check_output
 
     until [ $? -eq 0 ]; do
         reboot_chick

@@ -250,5 +250,13 @@ def main():
         for script_name in script_names:
             f.write(script_name + "\n")
 
+    # Write names of all jobs to a file
+    jobnames_file = os.path.join(args.dir, "jobnames")
+    with open(jobnames_file, "w") as f:
+        for script_name in script_names:
+            # Strip directory and ".sh" suffix
+            name = os.path.basename(script_name)[:-3]
+            f.write(name + "\n")
+
 if __name__ == "__main__":
     main()
