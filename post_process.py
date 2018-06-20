@@ -27,7 +27,12 @@ for path in glob.glob(paths):
                 pass
     print num_records, "records"
 
-data = pd.DataFrame.from_records(rows)
-data = data.fillna(method="ffill")
-data.to_csv(output)
-print "Saved to " + output
+if len(rows) == 0:
+    print "No records found"
+else:
+    data = pd.DataFrame.from_records(rows)
+    cols = [c for c in data.columns if c != "time_ms"]
+    data[cols] = data[cols].fillna(method="ffill")
+    data = data.dropna(subset=["time_ms"])
+    data.to_csv(output)
+    print "Saved to " + output

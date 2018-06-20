@@ -48,7 +48,7 @@ def check_local_config(local_config):
             if not os.path.isfile(path):
                 raise Exception("Invalid path for {} executable: {}".format(benchmark, path))
 
-        if local_config["platform"] not in ["native", "emusim", "emu", "emuchick"]:
+        if local_config["platform"] not in ["native", "emusim", "emu", "emusim-chick-box", "emusim-validation"]:
             raise Exception("Platform {} not supported".format(local_config["platform"]))
 
     except KeyError as e:
@@ -119,7 +119,7 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
         emu_multinode_exec 143.215.138.20 0 {exe} -- \\"""
 
     # Emu simulator command line
-    elif local_config["platform"] == "emusim":
+    elif "emusim" in local_config["platform"]:
         template += """
         {emusim_exe} \\
         {emusim_flags} \\
