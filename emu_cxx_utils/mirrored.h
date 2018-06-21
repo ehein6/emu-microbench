@@ -17,8 +17,8 @@ struct mirrored : public T
         // Replicate to each remote nodelet
         for (long i = 1; i < NODELETS(); ++i) {
             T * remote = static_cast<T*>(mw_get_nth(this, i));
-            // Copy local to remote
-            memcpy(remote, local, sizeof(T));
+            // Copy local to remote (ignore warning about overwriting vtable)
+            memcpy((unsigned char*)remote, (unsigned char*)local, sizeof(T));
         }
     }
 
