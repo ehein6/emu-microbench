@@ -52,9 +52,9 @@ global_stream_init(global_stream_data * data, long n)
     }
 #endif
 
-//    emu_chunked_array_set_long(&data->array_a, 1);
-//    emu_chunked_array_set_long(&data->array_b, 2);
-//    emu_chunked_array_set_long(&data->array_c, 0);
+    emu_chunked_array_set_long(&data->array_a, 1);
+    emu_chunked_array_set_long(&data->array_b, 2);
+    emu_chunked_array_set_long(&data->array_c, 0);
 }
 
 void
@@ -341,9 +341,9 @@ int main(int argc, char** argv)
         LOG("Mode %s not implemented!", args.mode);
     }
 
-//    LOG("Validating results...");
-//    global_stream_validate(&data);
-//    LOG("OK\n");
+    LOG("Validating results...");
+    global_stream_validate(&data);
+    LOG("OK\n");
 
     global_stream_deinit(&data);
     return 0;
