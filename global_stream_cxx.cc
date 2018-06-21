@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <string.h>
 #include <hooks.h>
+#include <emu_striped_array.h>
 #include "common.h"
 #include "spawn_templates.h"
 #include "emu_2d_array.h"
@@ -19,11 +20,17 @@ extern "C" {
 #include "memoryweb_x86.h"
 #endif
 
-struct global_stream
+struct benchmark {
+    virtual void run(const char * name, long num_trials) = 0;
+    virtual ~benchmark() {};
+};
+
+template<template <typename> class array_type>
+struct global_stream : public benchmark
 {
-    emu_2d_array<long> a;
-    emu_2d_array<long> b;
-    emu_2d_array<long> c;
+    array_type<long> a;
+    array_type<long> b;
+    array_type<long> c;
     long n;
     long num_threads;
 
@@ -69,7 +76,7 @@ struct global_stream
     void
     add_serial_remote_spawn()
     {
-        c.parallel_apply_serial_spawn(n/num_threads, [this](long i) {
+        c.parallel_apply(n/num_threads, [this](long i) {
             c[i] = a[i] + b[i];
         });
     }
@@ -77,7 +84,7 @@ struct global_stream
     void
     add_recursive_remote_spawn()
     {
-        c.parallel_apply_recursive_spawn(n/num_threads, [this](long i) {
+        c.parallel_apply(n/num_threads, [this](long i) {
             c[i] = a[i] + b[i];
         });
     }
@@ -113,6 +120,7 @@ struct global_stream
                 RUN_BENCHMARK(add_serial);
             } else {
                 printf("Mode %s not implemented!", name);
+                exit(1);
             }
 
             #undef RUN_BENCHMARK
@@ -125,25 +133,40 @@ struct global_stream
     
 };
 
+benchmark *
+make_benchmark(const char * layout, long n, long num_threads)
+{
+    if (!strcmp(layout, "striped")) {
+        return new mirrored<global_stream<emu_striped_array>>(n, num_threads);
+    } else if (!strcmp(layout, "chunked")) {
+        return new mirrored<global_stream<emu_2d_array>>(n, num_threads);
+    } else {
+        printf("Layout %s not implemented!", layout);
+        exit(1);
+        return nullptr;
+    }
+}
 
 
 int main(int argc, char** argv)
 {
     struct {
         const char* mode;
+        const char* layout;
         long log2_num_elements;
         long num_threads;
         long num_trials;
     } args;
 
-    if (argc != 5) {
-        LOG("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
+    if (argc != 6) {
+        LOG("Usage: %s mode layout log2_num_elements num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
-        args.log2_num_elements = atol(argv[2]);
-        args.num_threads = atol(argv[3]);
-        args.num_trials = atol(argv[4]);
+        args.layout = argv[2];
+        args.log2_num_elements = atol(argv[3]);
+        args.num_threads = atol(argv[4]);
+        args.num_trials = atol(argv[5]);
 
         if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
         if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
@@ -151,6 +174,7 @@ int main(int argc, char** argv)
     }
 
     hooks_set_attr_str("spawn_mode", args.mode);
+    hooks_set_attr_str("layout", args.layout);
     hooks_set_attr_i64("log2_num_elements", args.log2_num_elements);
     hooks_set_attr_i64("num_threads", args.num_threads);
     hooks_set_attr_i64("num_nodelets", NODELETS());
@@ -163,7 +187,8 @@ int main(int argc, char** argv)
     fflush(stdout);
 
     // Create the benchmark struct with replicated storage
-    auto * benchmark = new mirrored<global_stream>(n, args.num_threads);
+
+    auto * benchmark = make_benchmark(args.layout, n, args.num_threads);
     printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
 
     benchmark->run(args.mode, args.num_trials);
