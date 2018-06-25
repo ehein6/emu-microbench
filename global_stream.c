@@ -232,10 +232,35 @@ global_stream_add_emu_for_2d_worker(emu_chunked_array * array, long begin, long 
 void
 global_stream_add_emu_for_2d(global_stream_data * data)
 {
-    emu_chunked_array_apply_v1(&data->array_a, data->n / data->num_threads,
+    EMU_CHUNKED_ARRAY_APPLY(&data->array_a, data->n / data->num_threads,
         global_stream_add_emu_for_2d_worker, data
     );
 }
+
+void
+global_stream_add_emu_apply_var_worker(emu_chunked_array * array, long begin, long end, va_list args)
+{
+    (void)array;
+    global_stream_data * data = va_arg(args, global_stream_data*);
+    long block_sz = data->n / NODELETS();
+
+    long * c = &INDEX(data->c, block_sz, begin);
+    long * b = &INDEX(data->b, block_sz, begin);
+    long * a = &INDEX(data->a, block_sz, begin);
+
+    for (long i = 0; i < end-begin; ++i) {
+        c[i] = a[i] + b[i];
+    }
+}
+
+void
+global_stream_add_emu_apply_var(global_stream_data * data)
+{
+    emu_chunked_array_apply_var(&data->array_a, data->n / data->num_threads,
+        global_stream_add_emu_apply_var_worker, data
+    );
+}
+
 
 // serial_remote_spawn_shallow - same as serial_remote_spawn, but with only one level of spawning
 void
@@ -334,6 +359,9 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.mode, "emu_for_2d")) {
         runtime_assert(data.num_threads >= NODELETS(), "emu_for_2d mode will always use at least one thread per nodelet");
         RUN_BENCHMARK(global_stream_add_emu_for_2d);
+    } else if (!strcmp(args.mode, "emu_apply_var")) {
+        runtime_assert(data.num_threads >= NODELETS(), "recursive_remote_spawn mode will always use at least one thread per nodelet");
+        RUN_BENCHMARK(global_stream_add_emu_apply_var);
     } else if (!strcmp(args.mode, "serial")) {
         runtime_assert(data.num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(global_stream_add_serial);

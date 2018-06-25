@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 #include <assert.h>
+#include <stdarg.h>
 #include "emu_grain_helpers.h"
 
 typedef struct emu_chunked_array
@@ -102,6 +103,25 @@ emu_chunked_array_apply_v5(emu_chunked_array * array, long grain,
     void (*worker)(emu_chunked_array * array, long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4, void * arg5)
     , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5);
 /* [[[end]]] */
+
+
+#define GET_MACRO(_1, _2, _3, _4, _5, _6, _7, _8, NAME, ...) NAME
+#define EMU_CHUNKED_ARRAY_APPLY(...) GET_MACRO(__VA_ARGS__, \
+emu_chunked_array_apply_v5, \
+emu_chunked_array_apply_v4, \
+emu_chunked_array_apply_v3, \
+emu_chunked_array_apply_v2, \
+emu_chunked_array_apply_v1, \
+emu_chunked_array_apply_v0) \
+(__VA_ARGS__)
+
+void
+emu_chunked_array_apply_var(
+    emu_chunked_array * array,
+    long grain,
+    void (*worker)(emu_chunked_array * array, long begin, long end, va_list args),
+    ...
+);
 
 /**
  * Initialize each element of the array to @c value
