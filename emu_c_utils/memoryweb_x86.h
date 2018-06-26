@@ -109,6 +109,9 @@ mw_free(void * ptr)
 }
 
 #define ATOMIC_ADDMS(PTR, VAL) __sync_fetch_and_add(PTR, VAL)
+#define ATOMIC_ANDMS(PTR, VAL) __sync_fetch_and_and(PTR, VAL)
+#define ATOMIC_ORMS(PTR, VAL) __sync_fetch_and_or(PTR, VAL)
+#define ATOMIC_XORMS(PTR, VAL) __sync_fetch_and_xor(PTR, VAL)
 
 static inline long
 ATOMIC_CAS(volatile long * ptr, long newval, long oldval) {
@@ -137,6 +140,12 @@ ATOMIC_MINMS(volatile long * ptr, long value) {
 
 static inline void
 REMOTE_ADD(volatile long * ptr, long value) { ATOMIC_ADDMS(ptr, value); }
+static inline void
+REMOTE_AND(volatile long * ptr, long value) { ATOMIC_ANDMS(ptr, value); }
+static inline void
+REMOTE_OR(volatile long * ptr, long value) { ATOMIC_ORMS(ptr, value); }
+static inline void
+REMOTE_XOR(volatile long * ptr, long value) { ATOMIC_XORMS(ptr, value); }
 static inline void
 REMOTE_MAX(volatile long * ptr, long value) { ATOMIC_MAXMS(ptr, value); }
 static inline void
