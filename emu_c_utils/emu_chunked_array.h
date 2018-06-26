@@ -105,8 +105,8 @@ emu_chunked_array_apply_v5(emu_chunked_array * array, long grain,
 /* [[[end]]] */
 
 
-#define GET_MACRO(_1, _2, _3, _4, _5, _6, _7, _8, NAME, ...) NAME
-#define EMU_CHUNKED_ARRAY_APPLY(...) GET_MACRO(__VA_ARGS__, \
+#define GET_EMU_CHUNKED_ARRAY_APPLY_MACRO(_1, _2, _3, _4, _5, _6, _7, _8, NAME, ...) NAME
+#define EMU_CHUNKED_ARRAY_APPLY(...) GET_EMU_CHUNKED_ARRAY_APPLY_MACRO(__VA_ARGS__, \
 emu_chunked_array_apply_v5, \
 emu_chunked_array_apply_v4, \
 emu_chunked_array_apply_v3, \
