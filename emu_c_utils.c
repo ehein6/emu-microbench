@@ -6,7 +6,6 @@
 #include "emu_c_utils.h"
 #include <assert.h>
 #include <string.h>
-#include <core/trace.h>
 
 #if defined(__le64__)
 #include <memoryweb.h>

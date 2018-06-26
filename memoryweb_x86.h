@@ -4,7 +4,9 @@
  \brief Header file for Emu memory web on x86
  */
 
-#pragma once
+#ifndef _MEMORYWEB_H
+#define _MEMORYWEB_H
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,11 +18,11 @@ extern "C" {
 
 // Mimic memoryweb behavior on x86
 // TODO eventually move this all to its own header file
-#define NODE_ID() (0)
-#define NODELETS() (1)
+#define NODE_ID() (0L)
+#define NODELETS() (1L)
 #define replicated
 #define PRIORITY(X) (63-__builtin_clzll(X))
-#define MIGRATE(X)
+#define MIGRATE(X) ((void)X)
 // For emu, we declare spawned functions noinline to prevent variables from the parent
 // stack frame from being carried along. For x86, inlining is good.
 #define noinline
@@ -107,6 +109,9 @@ mw_free(void * ptr)
 }
 
 #define ATOMIC_ADDMS(PTR, VAL) __sync_fetch_and_add(PTR, VAL)
+#define ATOMIC_ANDMS(PTR, VAL) __sync_fetch_and_and(PTR, VAL)
+#define ATOMIC_ORMS(PTR, VAL) __sync_fetch_and_or(PTR, VAL)
+#define ATOMIC_XORMS(PTR, VAL) __sync_fetch_and_xor(PTR, VAL)
 
 static inline long
 ATOMIC_CAS(volatile long * ptr, long newval, long oldval) {
@@ -136,10 +141,18 @@ ATOMIC_MINMS(volatile long * ptr, long value) {
 static inline void
 REMOTE_ADD(volatile long * ptr, long value) { ATOMIC_ADDMS(ptr, value); }
 static inline void
+REMOTE_AND(volatile long * ptr, long value) { ATOMIC_ANDMS(ptr, value); }
+static inline void
+REMOTE_OR(volatile long * ptr, long value) { ATOMIC_ORMS(ptr, value); }
+static inline void
+REMOTE_XOR(volatile long * ptr, long value) { ATOMIC_XORMS(ptr, value); }
+static inline void
 REMOTE_MAX(volatile long * ptr, long value) { ATOMIC_MAXMS(ptr, value); }
 static inline void
 REMOTE_MIN(volatile long * ptr, long value) { ATOMIC_MINMS(ptr, value); }
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
