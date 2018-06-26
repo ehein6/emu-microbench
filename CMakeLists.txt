@@ -37,6 +37,7 @@ link_libraries(emu_c_utils)
 
 add_executable(local_stream local_stream.c)
 add_executable(global_stream global_stream.c)
+add_executable(global_stream_1d global_stream_1d.c)
 add_executable(global_reduce global_reduce.c)
 add_executable(pointer_chase pointer_chase.c)
 add_executable(ping_pong ping_pong.c)
