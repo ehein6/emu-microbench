@@ -41,7 +41,7 @@ emu_chunked_array_apply_var_level1(
         va_copy(args_copy[args_copy_id], args);
         long first = i;
         long last = first + grain; if (last > end) { last = end; }
-        cilk_spawn worker(array, first, last, args_copy[args_copy_id]);
+        cilk_spawn worker(array, first, last, args_copy[args_copy_id++]);
     }
     cilk_sync;
     // Clean up va_lists
