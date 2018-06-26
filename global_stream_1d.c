@@ -30,7 +30,8 @@ typedef struct global_stream_data {
 static void init_worker(long * array, long begin, long end, void * arg1)
 {
     global_stream_data * data = arg1;
-    for (long i = begin; i < end; i += NODELETS()) {
+    long nodelets = NODELETS();
+    for (long i = begin; i < end; i += nodelets) {
         data->a[i] = 1;
         data->b[i] = 2;
         data->c[i] = 0;
@@ -52,13 +53,6 @@ global_stream_init(global_stream_data * data, long n)
     replicated_init_ptr(&data->b, mw_malloc1dlong(n));
     replicated_init_ptr(&data->c, mw_malloc1dlong(n));
 
-//    // Replicate pointers to all other nodelets
-//    data = mw_get_nth(data, 0);
-//    for (long i = 1; i < NODELETS(); ++i) {
-//        global_stream_data * remote_data = mw_get_nth(data, i);
-//        memcpy(remote_data, data, sizeof(global_stream_data));
-//    }
-
     emu_1d_array_apply_v1(data->a, n, GLOBAL_GRAIN(n),
         init_worker, data
     );
@@ -75,7 +69,8 @@ global_stream_deinit(global_stream_data * data)
 static void
 global_stream_validate_worker(long * array, long begin, long end)
 {
-    for (long i = begin; i < end; i += NODELETS()) {
+    const long nodelets = NODELETS();
+    for (long i = begin; i < end; i += nodelets) {
         if (array[i] != 3) {
             LOG("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", i, array[i]);
             exit(1);
@@ -137,8 +132,8 @@ global_stream_add_emu_apply_1d_worker(long * array, long begin, long end, void *
 {
     (void)array;
     global_stream_data * data = (global_stream_data *)arg1;
-
-    for (long i = begin; i < end; i += NODELETS()) {
+    const long nodelets = NODELETS();
+    for (long i = begin; i < end; i += nodelets) {
         data->c[i] = data->a[i] + data->b[i];
     }
 }
@@ -156,8 +151,8 @@ global_stream_copy_emu_apply_1d_worker(long * array, long begin, long end, void 
 {
     (void)array;
     global_stream_data * data = (global_stream_data *)arg1;
-
-    for (long i = begin; i < end; i += NODELETS()) {
+    const long nodelets = NODELETS();
+    for (long i = begin; i < end; i += nodelets) {
         data->c[i] = data->b[i];
     }
 }
@@ -175,8 +170,8 @@ global_stream_add_emu_apply_var_1d_worker(long * array, long begin, long end, va
 {
     (void)array;
     global_stream_data * data = va_arg(args, global_stream_data *);
-
-    for (long i = begin; i < end; i += NODELETS()) {
+    const long nodelets = NODELETS();
+    for (long i = begin; i < end; i += nodelets) {
         data->c[i] = data->a[i] + data->b[i];
     }
 }
