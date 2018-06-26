@@ -170,12 +170,22 @@ global_stream_copy_emu_apply_1d(global_stream_data * data)
     );
 }
 
+static void
+global_stream_add_emu_apply_var_1d_worker(long * array, long begin, long end, va_list args)
+{
+    (void)array;
+    global_stream_data * data = va_arg(args, global_stream_data *);
+
+    for (long i = begin; i < end; i += NODELETS()) {
+        data->c[i] = data->a[i] + data->b[i];
+    }
+}
 
 void
-global_stream_apply_emu__1d(global_stream_data * data)
+global_stream_add_emu_apply_var_1d(global_stream_data * data)
 {
-    emu_1d_array_apply_v1(data->a, data->n, data->n / data->num_threads,
-        global_stream_copy_emu_apply_1d_worker, data
+    emu_1d_array_apply_var(data->a, data->n, data->n / data->num_threads,
+        global_stream_add_emu_apply_var_1d_worker, data
     );
 }
 
@@ -249,6 +259,9 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.mode, "emu_copy_1d")) {
         runtime_assert(data.num_threads >= NODELETS(), "will always use at least one thread per nodelet");
         RUN_BENCHMARK(global_stream_copy_emu_apply_1d);
+    } else if (!strcmp(args.mode, "emu_apply_var")) {
+        runtime_assert(data.num_threads >= NODELETS(), "will always use at least one thread per nodelet");
+        RUN_BENCHMARK(global_stream_add_emu_apply_var_1d);
     } else if (!strcmp(args.mode, "serial")) {
         runtime_assert(data.num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(global_stream_add_serial);

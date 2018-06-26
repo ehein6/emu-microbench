@@ -1,5 +1,5 @@
 #pragma once
-
+#include <stdarg.h>
 
 /*[[[cog
 
@@ -60,3 +60,12 @@ emu_1d_array_apply_v2, \
 emu_1d_array_apply_v1, \
 emu_1d_array_apply_v0) \
 (__VA_ARGS__)
+
+void
+emu_1d_array_apply_var(
+    long * array,
+    long size,
+    long grain,
+    void (*worker)(long * array, long begin, long end, va_list args),
+    ...
+);
