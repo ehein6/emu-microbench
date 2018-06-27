@@ -9,7 +9,7 @@ Build for emu hardware:
 mkdir build-hw && cd build-hw
 cmake .. \
 -DCMAKE_BUILD_TYPE=Release \
--DCMAKE_TOOLCHAIN_FILE=../cmake/emu-18.02-toolchain.cmake \
+-DCMAKE_TOOLCHAIN_FILE=../cmake/emu-cxx-toolchain.cmake \
 -DBUILD_FOR_EMUSIM=OFF
 make -j4
 ```
@@ -19,7 +19,7 @@ Build for emu simulator:
 mkdir build-sim && cd build-sim
 cmake .. \
 -DCMAKE_BUILD_TYPE=Release \
--DCMAKE_TOOLCHAIN_FILE=../cmake/emu-18.02-toolchain.cmake \
+-DCMAKE_TOOLCHAIN_FILE=../cmake/emu-cxx-toolchain.cmake \
 -DBUILD_FOR_EMUSIM=ON
 make -j4
 ```
