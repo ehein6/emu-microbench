@@ -261,17 +261,27 @@ emu_1d_array_apply_var_level1(
 }
 
 void
-emu_1d_array_apply_var(
+emu_1d_array_apply(
     long * array,
     long size,
     long grain,
     void (*worker)(long * array, long begin, long end, va_list args),
     ...
-)
-{
+) {
     va_list args;
     va_start(args, worker);
+    emu_1d_array_apply_var(array, size, grain, worker, args);
+    va_end(args);
+}
 
+void
+emu_1d_array_apply_var(
+    long * array,
+    long size,
+    long grain,
+    void (*worker)(long * array, long begin, long end, va_list args),
+    va_list args
+) {
     // We will need a copy of the va_list for each nodelet
     va_list args_copy[NODELETS()];
 
@@ -287,5 +297,4 @@ emu_1d_array_apply_var(
     for (long i = 0; i < NODELETS(); ++i) {
         va_end(args_copy[i]);
     }
-    va_end(args);
 }

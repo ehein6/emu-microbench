@@ -179,7 +179,7 @@ global_stream_add_emu_apply_var_1d_worker(long * array, long begin, long end, va
 void
 global_stream_add_emu_apply_var_1d(global_stream_data * data)
 {
-    emu_1d_array_apply_var(data->a, data->n, data->n / data->num_threads,
+    emu_1d_array_apply(data->a, data->n, data->n / data->num_threads,
         global_stream_add_emu_apply_var_1d_worker, data
     );
 }

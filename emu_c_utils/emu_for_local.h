@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <stdarg.h>
 #include "emu_grain_helpers.h"
 
 /*[[[cog
@@ -55,6 +56,24 @@ emu_local_for_v5(long begin, long end, long grain,
     , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5);
 
 /* [[[end]]] */
+
+void
+emu_local_for(
+    long begin,
+    long end,
+    long grain,
+    void (*worker)(long begin, long end, va_list args),
+    ...
+);
+
+void
+emu_local_for_var(
+    long begin,
+    long end,
+    long grain,
+    void (*worker)(long begin, long end, va_list args),
+    va_list args
+);
 
 /**
  * Set each value of @c array to @c value in parallel

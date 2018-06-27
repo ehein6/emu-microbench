@@ -16,12 +16,6 @@ so instead we use a function pointer and a void pointer to the captured data. Th
 needs to be defined before the function that runs a parallel loop.
 Also, to avoid the overhead of an indirect function call for each element, each user-provided lambda
 is expected to handle a range of elements (from `begin` to `end`) rather than a single element.
-- **No varargs**: Trying to `cilk_spawn` a function with `varargs` resulted in data corruption.
-Probably the size of the spawned function's stack frame needs to be known at compile-time.
-I used [Cog](https://nedbatchelder.com/code/cog/) to generate several versions of each function with a
-varying number of arguments. This technique has the advantage that passed variables will be
-copied to the remote nodelet on a spawn rather than forcing a migration every time they are touched.
-The downside is that arguments need to be carefully casted to/from `void*`.
 - **No operator overloading**: Indexing into an `emu_chunked_array` looks like
 `emu_chunked_array_index(array, i)` instead of `array[i]`,
 
@@ -61,6 +55,23 @@ void worker(long begin, long end, void * arg1, void * arg2)
 emu_local_for_v2(0, n, LOCAL_GRAIN(n), worker, x, (void*)b);
 ```
 
+or, using the varargs API:
+```
+long n = 1024;
+long b = 5;
+long * x = malloc(n * sizeof(long));
+
+void worker(long begin, long end, va_list args)
+{
+    long * x = va_arg(args, long*);
+    long b = va_arg(args, long);
+    for (long i = begin; i < end; ++i) {
+        x[i] += b;
+    }
+}
+emu_local_for(0, n, LOCAL_GRAIN(n), worker, x, b);
+```
+
 ## emu_for_1d.h
 
 Implements a distributed parallel for over a `malloc1dlong` array.
@@ -94,6 +105,25 @@ void worker(long * array, long begin, long end, void * arg1)
     }
 }
 emu_1d_array_apply_v1(x, n, GLOBAL_GRAIN(n), worker, (void*)b);
+```
+
+or, using the varargs API:
+
+```
+long n = 1024;
+long b = 5;
+long * x = malloc1dlong(n);
+
+void worker(long * array, long begin, long end, va_list args)
+{
+    long * x = array;
+    long b = va_arg(args, long);
+    long nodelets = NODELETS();
+    for (long i = begin; i < end; i += nodelets) {
+        x[i] += b;
+    }
+}
+emu_1d_array_apply(x, n, GLOBAL_GRAIN(n), worker, b);
 ```
 
 ### emu_reduce_1d.h
@@ -188,6 +218,25 @@ worker(emu_chunked_array * array, long begin, long end, void * arg1)
 }
 emu_chunked_array_apply_v1(x, GLOBAL_GRAIN(n), worker, (void*)b);
 ```
+
+or, using the varargs API:
+
+```
+long n = 1024;
+long b = 5;
+emu_chunked_array * x = emu_chunked_array_replicated_new(n, sizeof(long));
+
+void
+worker(emu_chunked_array * array, long begin, long end, va_list args)
+{
+    long b = va_arg(args, long);
+    long * x = emu_chunked_array_index(array, begin);
+
+    for (long i = 0; i < end-begin; ++i) {
+        x[i] += b;
+    }
+}
+emu_chunked_array_apply(x, GLOBAL_GRAIN(n), worker, b);
 
 ### emu_reduce_2d.h
 

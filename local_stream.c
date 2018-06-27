@@ -30,8 +30,8 @@ local_stream_init(local_stream_data * data, long n)
     data->c = malloc(n * sizeof(long));
     assert(data->c);
 
-    emu_local_for_set_long(data->a, n, 0);
-    emu_local_for_set_long(data->b, n, 0);
+    emu_local_for_set_long(data->a, n, 1);
+    emu_local_for_set_long(data->b, n, 2);
     emu_local_for_set_long(data->c, n, 0);
 }
 
@@ -92,6 +92,42 @@ local_stream_add_serial_spawn(local_stream_data * data)
     cilk_sync;
 }
 
+void
+local_stream_add_library_worker(long begin, long end, void * arg1, void * arg2, void * arg3)
+{
+    long *a = (void*) arg1;
+    long *b = (void*) arg2;
+    long *c = (void*) arg3;
+    for (long i = begin; i < end; ++i) {
+        c[i] = a[i] + b[i];
+    }
+}
+
+void local_stream_add_library(local_stream_data * data)
+{
+    emu_local_for_v3(0, data->n, data->n / data->num_threads,
+        local_stream_add_library_worker, data->a, data->b, data->c
+    );
+}
+
+void
+local_stream_add_varargs_worker(long begin, long end, va_list args)
+{
+    long *a = va_arg(args, long*);
+    long *b = va_arg(args, long*);
+    long *c = va_arg(args, long*);
+    for (long i = begin; i < end; ++i) {
+        c[i] = a[i] + b[i];
+    }
+}
+
+void local_stream_add_varargs(local_stream_data * data)
+{
+    emu_local_for(0, data->n, data->n / data->num_threads,
+        local_stream_add_varargs_worker, data->a, data->b, data->c
+    );
+}
+
 void local_stream_run(
     local_stream_data * data,
     const char * name,
@@ -103,10 +139,32 @@ void local_stream_run(
         hooks_region_begin(name);
         benchmark(data);
         double time_ms = hooks_region_end();
-        double bytes_per_second = (data->n * sizeof(long) * 3) / (time_ms/1000);
+        double bytes_per_second = time_ms == 0 ? 0 :
+            (data->n * sizeof(long) * 3) / (time_ms/1000);
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
+
+static void
+local_stream_validate_worker(long begin, long end, va_list args)
+{
+    long * c = va_arg(args, long*);
+    for (long i = begin; i < end; ++i) {
+        if (c[i] != 3) {
+            LOG("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", i, c[i]);
+            exit(1);
+        }
+    }
+}
+
+void
+local_stream_validate(local_stream_data * data)
+{
+    emu_local_for(0, data->n, LOCAL_GRAIN(data->n),
+        local_stream_validate_worker, data->c
+    );
+}
+
 
 int main(int argc, char** argv)
 {
@@ -147,11 +205,19 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(local_stream_add_serial_spawn);
     } else if (!strcmp(args.mode, "recursive_spawn")) {
         RUN_BENCHMARK(local_stream_add_recursive_spawn);
+    } else if (!strcmp(args.mode, "library")) {
+        RUN_BENCHMARK(local_stream_add_library);
+    } else if (!strcmp(args.mode, "library_varargs")) {
+        RUN_BENCHMARK(local_stream_add_varargs);
     } else if (!strcmp(args.mode, "serial")) {
         RUN_BENCHMARK(local_stream_add_serial);
     } else {
         LOG("Mode %s not implemented!", args.mode);
     }
+
+    LOG("Validating results...");
+    local_stream_validate(&data);
+    LOG("OK\n");
 
     local_stream_deinit(&data);
     return 0;

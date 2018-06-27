@@ -116,11 +116,19 @@ emu_chunked_array_apply_v0) \
 (__VA_ARGS__)
 
 void
-emu_chunked_array_apply_var(
+emu_chunked_array_apply(
     emu_chunked_array * array,
     long grain,
     void (*worker)(emu_chunked_array * array, long begin, long end, va_list args),
     ...
+);
+
+void
+emu_chunked_array_apply_var(
+    emu_chunked_array * array,
+    long grain,
+    void (*worker)(emu_chunked_array * array, long begin, long end, va_list args),
+    va_list args
 );
 
 /**

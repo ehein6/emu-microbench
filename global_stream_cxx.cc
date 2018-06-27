@@ -92,6 +92,7 @@ struct global_stream : public benchmark
     void
     run(const char * name, long num_trials)
     {
+        LOG("In run(%s, %li)", name, num_trials);
         for (long trial = 0; trial < num_trials; ++trial) {
             hooks_set_attr_i64("trial", trial);
 

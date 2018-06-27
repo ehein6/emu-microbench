@@ -256,7 +256,7 @@ global_stream_add_emu_apply_var_worker(emu_chunked_array * array, long begin, lo
 void
 global_stream_add_emu_apply_var(global_stream_data * data)
 {
-    emu_chunked_array_apply_var(&data->array_a, data->n / data->num_threads,
+    emu_chunked_array_apply(&data->array_a, data->n / data->num_threads,
         global_stream_add_emu_apply_var_worker, data
     );
 }
