@@ -61,6 +61,27 @@ scatter_memcpy(scatter_data * data)
 }
 
 // Scatter the buffer using a serial for loop for each nodelet
+static noinline void
+copy_long_worker_var(long begin, long end, va_list args)
+{
+    long * dst = va_arg(args, long*);
+    long * src = va_arg(args, long*);
+    for (long i = begin; i < end; ++i) {
+        dst[i] = src[i];
+    }
+}
+
+static void
+copy_long_worker(long begin, long end, ...)
+{
+    va_list args;
+    va_start(args, end);
+    copy_long_worker(begin, end, args);
+    va_end(args);
+}
+
+
+
 noinline void
 scatter_serial(scatter_data * data)
 {
@@ -70,16 +91,6 @@ scatter_serial(scatter_data * data)
         for (long i = 0; i < data->n; ++i) {
             remote[i] = local[i];
         }
-    }
-}
-
-static noinline void
-copy_long_worker(long begin, long end, void * arg1, void * arg2)
-{
-    long * dst = arg1;
-    long * src = arg2;
-    for (long i = begin; i < end; ++i) {
-        dst[i] = src[i];
     }
 }
 
@@ -149,8 +160,8 @@ scatter_tree(long * buffer, long n, long nlet_begin, long nlet_end)
 
 //    LOG("nlet[%li]: Copy from %li to %li\n", NODE_ID(), NODE_ID(), nlet_mid);
     // Copy to nlet_mid
-    emu_local_for_v2(0, n, LOCAL_GRAIN_MIN(n, 64),
-        copy_long_worker, remote, local
+    emu_local_for(0, n, LOCAL_GRAIN_MIN(n, 64),
+        copy_long_worker_var, remote, local
     );
 
 //    LOG("nlet[%li]: Spawn scatter_tree(%li - %li)\n", NODE_ID(), nlet_mid, nlet_end);

@@ -24,9 +24,9 @@ compare_long (const void * a, const void * b)
 }
 
 void
-init_array_worker(long begin, long end, void * arg1)
+init_array_worker(long begin, long end, va_list args)
 {
-    long * array = arg1;
+    long * array = va_arg(args, long*);
     for (long i = begin; i < end; ++i) {
         array[i] = rand();
     }
@@ -39,7 +39,7 @@ local_sort_init(local_sort_data * data, long n)
     data->array = malloc(n * sizeof(long));
     assert(data->array);
 
-    emu_local_for_v1(0, n, LOCAL_GRAIN_MIN(n, 256),
+    emu_local_for(0, n, LOCAL_GRAIN_MIN(n, 256),
         init_array_worker, data->array
     );
 }

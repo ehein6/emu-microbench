@@ -93,11 +93,11 @@ local_stream_add_serial_spawn(local_stream_data * data)
 }
 
 void
-local_stream_add_library_worker(long begin, long end, void * arg1, void * arg2, void * arg3)
+local_stream_add_library_worker(long begin, long end, va_list args)
 {
-    long *a = (void*) arg1;
-    long *b = (void*) arg2;
-    long *c = (void*) arg3;
+    long *a = va_arg(args, long*);
+    long *b = va_arg(args, long*);
+    long *c = va_arg(args, long*);
     for (long i = begin; i < end; ++i) {
         c[i] = a[i] + b[i];
     }
@@ -105,7 +105,7 @@ local_stream_add_library_worker(long begin, long end, void * arg1, void * arg2, 
 
 void local_stream_add_library(local_stream_data * data)
 {
-    emu_local_for_v3(0, data->n, data->n / data->num_threads,
+    emu_local_for(0, data->n, data->n / data->num_threads,
         local_stream_add_library_worker, data->a, data->b, data->c
     );
 }

@@ -101,9 +101,9 @@ void shuffle(long *array, size_t n)
 
 // Initializes a list with 0, 1, 2, ...
 noinline void
-index_init_worker(long begin, long end, void * arg1)
+index_init_worker(long begin, long end, va_list args)
 {
-    long * list = (long*) arg1;
+    long * list = va_arg(args, long*);
     for (long i = begin; i < end; ++i) {
         list[i] = i;
     }
@@ -112,10 +112,10 @@ index_init_worker(long begin, long end, void * arg1)
 // Initializes a list with  0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15
 // This will transform malloc2D address mode to sequential
 static noinline void
-strided_index_init_worker(long begin, long end, void * arg1, void * arg2)
+strided_index_init_worker(long begin, long end, va_list args)
 {
-    long * list = (long*) arg1;
-    const long n = (long) arg2;
+    long * list = va_arg(args, long*);
+    const long n = va_arg(args, long);
     const long num_nodelets = NODELETS();
     for (long i = begin; i < end; ++i) {
         // = i * NODELETS() % n
@@ -126,9 +126,9 @@ strided_index_init_worker(long begin, long end, void * arg1, void * arg2)
 
 // Links the nodes of the list according to the index array
 noinline void
-relink_worker(long begin, long end, void * arg1)
+relink_worker(long begin, long end, va_list args)
 {
-    pointer_chase_data* data = (pointer_chase_data *)arg1;
+    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
     for (long i = begin; i < end; ++i) {
         // String pointers together according to the index
         long a = data->indices[i];
@@ -140,9 +140,9 @@ relink_worker(long begin, long end, void * arg1)
 }
 
 static void
-relink_worker_1d(long * array, long begin, long end, void * arg1)
+relink_worker_1d(long * array, long begin, long end, va_list args)
 {
-    pointer_chase_data* data = (pointer_chase_data *)arg1;
+    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
     const long nodelets = NODELETS();
     for (long i = begin; i < end; i += nodelets) {
         // String pointers together according to the index
@@ -154,24 +154,34 @@ relink_worker_1d(long * array, long begin, long end, void * arg1)
     }
 }
 
-noinline void
-memcpy_long_worker(long begin, long end, void * arg1, void * arg2)
+void
+memcpy_long_worker_var(long begin, long end, va_list args)
 {
-    long * dst = (long*) arg1;
-    long * src = (long*) arg2;
+    long * dst = va_arg(args, long*);
+    long * src = va_arg(args, long*);
     for (long i = begin; i < end; ++i) {
         dst[i] = src[i];
     }
 }
 
+void
+memcpy_long_worker(long begin, long end, ...)
+{
+    va_list args;
+    va_start(args, end);
+    memcpy_long_worker_var(begin, end, args);
+    va_end(args);
+}
+
+
 // Shuffles the index array at a block level
 noinline void
-block_shuffle_worker(long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4)
+block_shuffle_worker(long begin, long end, va_list args)
 {
-    long * block_indices = (long*)arg1;
-    long * old_indices = (long*)arg2;
-    long * new_indices = (long*)arg3;
-    long block_size = (long)arg4;
+    long * block_indices = va_arg(args, long*);
+    long * old_indices = va_arg(args, long*);
+    long * new_indices = va_arg(args, long*);
+    long block_size = va_arg(args, long);
 
     for (long src_block = begin; src_block < end; ++src_block) {
         long dst_block = block_indices[src_block];
@@ -188,10 +198,10 @@ block_shuffle_worker(long begin, long end, void * arg1, void * arg2, void * arg3
 
 // Shuffles the index array within each block
 noinline void
-intra_block_shuffle_worker(long begin, long end, void * arg1, void * arg2)
+intra_block_shuffle_worker(long begin, long end, va_list args)
 {
-    pointer_chase_data* data = (pointer_chase_data *)arg1;
-    long block_size = (long)arg2;
+    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
+    long block_size = va_arg(args, long);
     for (long block_id = begin; block_id < end; ++block_id) {
         shuffle(data->indices + block_id * block_size, block_size);
     }
@@ -227,7 +237,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     // Initialize with striped index pattern (i.e. 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15)
     // This will transform malloc2D address mode to sequential
     LOG("Initializing indices...\n");
-    emu_local_for_v2(0, n, LOCAL_GRAIN(n),
+    emu_local_for(0, n, LOCAL_GRAIN(n),
         strided_index_init_worker, data->indices, (void*)n
     );
 
@@ -260,7 +270,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
         // Make an array with an element for each block
         long * block_indices = malloc(sizeof(long) * num_blocks);
-        emu_local_for_v1(0, num_blocks, LOCAL_GRAIN(num_blocks),
+        emu_local_for(0, num_blocks, LOCAL_GRAIN(num_blocks),
             index_init_worker, block_indices
         );
 
@@ -271,12 +281,12 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         LOG("copy old_indices...\n");
         // Make a copy of the indices array
         long * old_indices = malloc(sizeof(long) * n);
-        emu_local_for_v2(0, n, LOCAL_GRAIN(n),
-            memcpy_long_worker, old_indices, data->indices
+        emu_local_for(0, n, LOCAL_GRAIN(n),
+            memcpy_long_worker_var, old_indices, data->indices
         );
 
         LOG("apply block_indices to indices...\n");
-        emu_local_for_v4(0, num_blocks, LOCAL_GRAIN(num_blocks),
+        emu_local_for(0, num_blocks, LOCAL_GRAIN(num_blocks),
             block_shuffle_worker, block_indices, old_indices, data->indices, (void*)block_size
         );
 
@@ -287,7 +297,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
     if (do_intra_block_shuffle) {
         LOG("Beginning intra-block shuffle\n");
-        emu_local_for_v2(0, num_blocks, LOCAL_GRAIN(num_blocks),
+        emu_local_for(0, num_blocks, LOCAL_GRAIN(num_blocks),
             intra_block_shuffle_worker, data, (void*)block_size
         );
     }
@@ -299,7 +309,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     cilk_sync;
 
     LOG("Linking nodes together...\n");
-    emu_1d_array_apply_v1((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
+    emu_1d_array_apply((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
         relink_worker_1d, data
     );
 

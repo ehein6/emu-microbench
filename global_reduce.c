@@ -66,9 +66,9 @@ global_reduce_add_serial(global_reduce_data * data)
 }
 
 static noinline void
-global_reduce_add_emu_apply_worker(emu_chunked_array * array, long begin, long end, void * arg1)
+global_reduce_add_emu_apply_worker(emu_chunked_array * array, long begin, long end, va_list args)
 {
-    long * sum = arg1;
+    long * sum = va_arg(args, long*);
     long * a = emu_chunked_array_index(array, begin);
     long local_sum = 0;
     for (long i = 0; i < end-begin; ++i) {
@@ -83,7 +83,7 @@ long
 global_reduce_add_emu_apply(global_reduce_data * data)
 {
     long sum = 0;
-    emu_chunked_array_apply_v1(&data->array_a, GLOBAL_GRAIN(data->n),
+    emu_chunked_array_apply(&data->array_a, GLOBAL_GRAIN(data->n),
         global_reduce_add_emu_apply_worker, &sum
     );
     return sum;

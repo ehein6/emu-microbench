@@ -66,7 +66,7 @@ global_stream_deinit(global_stream_data * data)
 }
 
 static noinline void
-global_stream_validate_worker(emu_chunked_array * array, long begin, long end)
+global_stream_validate_worker(emu_chunked_array * array, long begin, long end, va_list args)
 {
     long * c = emu_chunked_array_index(array, begin);
     for (long i = 0; i < end - begin; ++i) {
@@ -80,7 +80,7 @@ global_stream_validate_worker(emu_chunked_array * array, long begin, long end)
 void
 global_stream_validate(global_stream_data * data)
 {
-    emu_chunked_array_apply_v0(&data->array_c, GLOBAL_GRAIN(data->n),
+    emu_chunked_array_apply(&data->array_c, GLOBAL_GRAIN(data->n),
         global_stream_validate_worker
     );
 }
@@ -214,10 +214,10 @@ global_stream_add_recursive_remote_spawn(global_stream_data * data)
 }
 
 void
-global_stream_add_emu_for_2d_worker(emu_chunked_array * array, long begin, long end, void * arg1)
+global_stream_add_emu_for_2d_worker(emu_chunked_array * array, long begin, long end, va_list args)
 {
     (void)array;
-    global_stream_data * data = (global_stream_data *)arg1;
+    global_stream_data * data = va_arg(args, global_stream_data *);
     long block_sz = data->n / NODELETS();
 
     long * c = &INDEX(data->c, block_sz, begin);
@@ -232,7 +232,7 @@ global_stream_add_emu_for_2d_worker(emu_chunked_array * array, long begin, long 
 void
 global_stream_add_emu_for_2d(global_stream_data * data)
 {
-    EMU_CHUNKED_ARRAY_APPLY(&data->array_a, data->n / data->num_threads,
+    emu_chunked_array_apply(&data->array_a, data->n / data->num_threads,
         global_stream_add_emu_for_2d_worker, data
     );
 }

@@ -27,9 +27,9 @@ typedef struct global_stream_data {
 } global_stream_data;
 
 
-static void init_worker(long * array, long begin, long end, void * arg1)
+static void init_worker(long * array, long begin, long end, va_list args)
 {
-    global_stream_data * data = arg1;
+    global_stream_data * data = va_arg(args, global_stream_data *);
     long nodelets = NODELETS();
     for (long i = begin; i < end; i += nodelets) {
         data->a[i] = 1;
@@ -53,7 +53,7 @@ global_stream_init(global_stream_data * data, long n)
     replicated_init_ptr(&data->b, mw_malloc1dlong(n));
     replicated_init_ptr(&data->c, mw_malloc1dlong(n));
 
-    emu_1d_array_apply_v1(data->a, n, GLOBAL_GRAIN(n),
+    emu_1d_array_apply(data->a, n, GLOBAL_GRAIN(n),
         init_worker, data
     );
 }
@@ -67,7 +67,7 @@ global_stream_deinit(global_stream_data * data)
 }
 
 static void
-global_stream_validate_worker(long * array, long begin, long end)
+global_stream_validate_worker(long * array, long begin, long end, va_list args)
 {
     const long nodelets = NODELETS();
     for (long i = begin; i < end; i += nodelets) {
@@ -81,7 +81,7 @@ global_stream_validate_worker(long * array, long begin, long end)
 void
 global_stream_validate(global_stream_data * data)
 {
-    emu_1d_array_apply_v0(data->c, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
+    emu_1d_array_apply(data->c, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
         global_stream_validate_worker
     );
 }
@@ -128,10 +128,10 @@ global_stream_add_serial_spawn(global_stream_data * data)
 
 
 static void
-global_stream_add_emu_apply_1d_worker(long * array, long begin, long end, void * arg1)
+global_stream_add_emu_apply_1d_worker(long * array, long begin, long end, va_list args)
 {
     (void)array;
-    global_stream_data * data = (global_stream_data *)arg1;
+    global_stream_data * data = va_arg(args, global_stream_data *);
     const long nodelets = NODELETS();
     for (long i = begin; i < end; i += nodelets) {
         data->c[i] = data->a[i] + data->b[i];
@@ -141,16 +141,16 @@ global_stream_add_emu_apply_1d_worker(long * array, long begin, long end, void *
 void
 global_stream_add_emu_apply_1d(global_stream_data * data)
 {
-    emu_1d_array_apply_v1(data->a, data->n, data->n / data->num_threads,
+    emu_1d_array_apply(data->a, data->n, data->n / data->num_threads,
         global_stream_add_emu_apply_1d_worker, data
     );
 }
 
 static void
-global_stream_copy_emu_apply_1d_worker(long * array, long begin, long end, void * arg1)
+global_stream_copy_emu_apply_1d_worker(long * array, long begin, long end, va_list args)
 {
     (void)array;
-    global_stream_data * data = (global_stream_data *)arg1;
+    global_stream_data * data = va_arg(args, global_stream_data *);
     const long nodelets = NODELETS();
     for (long i = begin; i < end; i += nodelets) {
         data->c[i] = data->b[i];
@@ -160,7 +160,7 @@ global_stream_copy_emu_apply_1d_worker(long * array, long begin, long end, void 
 void
 global_stream_copy_emu_apply_1d(global_stream_data * data)
 {
-    emu_1d_array_apply_v1(data->a, data->n, data->n / data->num_threads,
+    emu_1d_array_apply(data->a, data->n, data->n / data->num_threads,
         global_stream_copy_emu_apply_1d_worker, data
     );
 }
