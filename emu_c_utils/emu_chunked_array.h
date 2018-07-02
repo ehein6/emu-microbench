@@ -78,6 +78,38 @@ emu_chunked_array_apply_var(
     va_list args
 );
 
+void
+emu_chunked_array_apply_recursive(
+    emu_chunked_array * array,
+    long grain,
+    void (*worker)(emu_chunked_array * array, long begin, long end, va_list args),
+    ...
+);
+
+void
+emu_chunked_array_apply_recursive_var(
+    emu_chunked_array * array,
+    long grain,
+    void (*worker)(emu_chunked_array * array, long begin, long end, va_list args),
+    va_list args
+);
+
+long
+emu_chunked_array_reduce_sum(
+    emu_chunked_array * array,
+    long grain,
+    void (*worker)(emu_chunked_array * array, long begin, long end, long * partial_sum, va_list args),
+    ...
+);
+
+long
+emu_chunked_array_reduce_sum_var(
+    emu_chunked_array * array,
+    long grain,
+    void (*worker)(emu_chunked_array * array, long begin, long end, long * partial_sum, va_list args),
+    va_list args
+);
+
 /**
  * Initialize each element of the array to @c value
  * @c array must have been initialized to store a long datatype
