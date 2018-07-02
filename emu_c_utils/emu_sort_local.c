@@ -346,13 +346,13 @@ highestPowerofTwoLessThan(size_t n)
  * @param arg5 size -- Size of each element
  */
 static void
-merge_worker(long begin, long end, void *arg1, void *arg2, void *arg3, void *arg4, void *arg5)
+merge_worker(long begin, long end, va_list args)
 {
-    int (*compar)(const void *, const void *) = arg1;
-    void *base = arg2;
-    bool asec = (bool) arg3;
-    size_t m = (size_t) arg4;
-    size_t size = (size_t) arg5;
+    int (*compar)(const void *, const void *) = va_arg(args, int (*)(const void *, const void *));
+    void *base = va_arg(args, void*);
+    bool asec = (bool)va_arg(args, int); // bool must be promoted to int to pass through varargs
+    size_t m = va_arg(args, size_t);
+    size_t size = va_arg(args, size_t);
 
     for (long i = begin; i < end; i++) {
         char *left = ((char *) base) + i * size;
@@ -388,7 +388,7 @@ p_bitonic_merge(void *base, size_t low, size_t num, int (*compar)(const void *, 
         size_t m = highestPowerofTwoLessThan(num);
 
         // calling the spawn based for loop
-        emu_local_for_v5(low, low+(num - m), grain,
+        emu_local_for(low, low+(num - m), grain,
             merge_worker, compar, base, (void *) asec, (void *) m, (void *) size);
 
         cilk_spawn p_bitonic_merge(base, low, m, compar, asec, size, grain);
