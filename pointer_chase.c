@@ -143,11 +143,12 @@ static void
 relink_worker_1d(long * array, long begin, long end, void * arg1)
 {
     pointer_chase_data* data = (pointer_chase_data *)arg1;
-    for (long i = begin; i < end; i += NODELETS()) {
+    const long nodelets = NODELETS();
+    for (long i = begin; i < end; i += nodelets) {
         // String pointers together according to the index
         long a = data->indices[i];
         long b = data->indices[i == data->n - 1 ? 0 : i + 1];
-        data->pool[a]->next = mw_arrayindex((long*)data->pool, (size_t)b, (size_t)data->n, sizeof(node)); //data->pool[b];
+        data->pool[a]->next = data->pool[b]; //mw_arrayindex((long*)data->pool, (size_t)b, (size_t)data->n, sizeof(node));
         // Initialize payload
         data->pool[a]->weight = i;
     }
