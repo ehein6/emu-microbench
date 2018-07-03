@@ -10,6 +10,8 @@
 #include <stdarg.h>
 #include "emu_grain_helpers.h"
 
+// chunked array type
+
 typedef struct emu_chunked_array
 {
     // Pointer returned from mw_malloc2D
@@ -26,11 +28,41 @@ typedef struct emu_chunked_array
     long num_elements;
 } emu_chunked_array;
 
+/**
+ * Allocates and initializes a @c emu_chunked_array, returning a replicated
+ * pointer to the data structure.
+ * @param num_elements Number of elements in the array
+ * @param element_size @c sizeof() each array element
+ * @return a replicated pointer to the initialized data structure.
+ */
 emu_chunked_array * emu_chunked_array_replicated_new(long num_elements, long element_size);
+
+/**
+ * Initializes a @c emu_chunked_array struct.
+ * @param self Pointer to uninitialized struct, which MUST be located in replicated storage.
+ * @param num_elements Number of elements in the array
+ * @param element_size @c sizeof() each array element
+ */
 void emu_chunked_array_replicated_init(emu_chunked_array * self, long num_elements, long element_size);
+/**
+ * Deallocates the array associated with a @c emu_chunked_array struct.
+ * @param self Pointer to struct initialized with @c emu_chunked_array_replicated_init.
+ */
 void emu_chunked_array_replicated_deinit(emu_chunked_array * self);
+
+/**
+ * Frees a pointer allocated with @c emu_chunked_array_replicated_new.
+ * @param self pointer to free
+ */
 void emu_chunked_array_replicated_free(emu_chunked_array * self);
 
+/**
+ * Returns a pointer to the @c i th element within the array.
+ * Remember to cast the returned value to the appropriate type before dereferencing.
+ * @param self Pointer to @c emu_chunked_array
+ * @param i Index of requested element
+ * @return a pointer to the @c i th element within the array.
+ */
 static inline void *
 emu_chunked_array_index(emu_chunked_array * self, long i)
 {
@@ -60,8 +92,26 @@ emu_chunked_array_index(emu_chunked_array * self, long i)
     return ptr;
 }
 
+/**
+ * Returns the number of elements in the array.
+ * @param self Pointer to @c emu_chunked_array
+ * @return Returns the number of elements in the array.
+ */
 long emu_chunked_array_size(emu_chunked_array * self);
 
+/**
+ * Implements a distributed parallel for over @c emu_chunked_array types.
+ * @param array Pointer to @c emu_chunked_array
+ * @param grain Minimum number of elements to assign to each thread.
+ * @param worker worker function that will be called on each array slice in parallel.
+ * The loop within the worker function is responsible for array elements from @c begin to @c end
+ * with a stride of 1. Because each worker function will be assigned elements on a
+ * single nodelet, it is more efficient to call @c emu_chunked_array_index once before the loop,
+ * and do linear indexing from that pointer.
+ * @param ... Additional arguments to pass to each invocation of the
+ *  worker function. Arguments will be passed via the varargs interface, and you will need to cast
+ *  back to the appropriate type within the worker function using the @c va_arg macro.
+ */
 void
 emu_chunked_array_apply(
     emu_chunked_array * array,
@@ -70,6 +120,9 @@ emu_chunked_array_apply(
     ...
 );
 
+/**
+ * Like emu_chunked_array_apply, but accepts a va_list to allow forwarding of varargs.
+ */
 void
 emu_chunked_array_apply_var(
     emu_chunked_array * array,
