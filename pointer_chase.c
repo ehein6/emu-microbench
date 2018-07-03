@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <hooks.h>
 #include <emu_for_1d.h>
+#include <emu_c_utils.h>
 
 #include "emu_for_local.h"
 
@@ -152,6 +153,36 @@ relink_worker_1d(long * array, long begin, long end, va_list args)
         // Initialize payload
         data->pool[a]->weight = i;
     }
+}
+
+static void
+relink_worker_local(long begin, long end, va_list args)
+{
+    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
+    const long nodelet_id = va_arg(args, long);
+    const long nodelets = NODELETS();
+
+    for (long i = begin; i < end; ++i) {
+        long a = data->indices[i];
+        // Determine if a is local
+        if (a % nodelets == nodelet_id) {
+            // Connect node a to node b
+            long b = data->indices[i == data->n - 1 ? 0 : i + 1];
+            data->pool[a]->next = mw_arrayindex((long*)data->pool, (size_t)b, (size_t)data->n, sizeof(node));
+            // Initialize payload
+            data->pool[a]->weight = i;
+        }
+    }
+}
+
+static void
+relink_spawner(void * hint, long nodelet_id, va_list args)
+{
+    (void)hint;
+    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
+    emu_local_for(0, data->n, LOCAL_GRAIN_MIN(data->n, 64),
+        relink_worker_local, data, nodelet_id
+    );
 }
 
 void
@@ -309,9 +340,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     cilk_sync;
 
     LOG("Linking nodes together...\n");
-    emu_1d_array_apply((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
-        relink_worker_1d, data
-    );
+    emu_for_each_nodelet(data->indices, relink_spawner, data);
 
     LOG("Chop\n");
     // Chop up the list so there is one chunk per thread
