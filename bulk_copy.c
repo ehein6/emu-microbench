@@ -46,14 +46,14 @@ bulk_copy_data_init(bulk_copy_data * data, const char* alloc_mode, long n, long 
     );
 
     long remote_nodelet = 0;
-    if (!strcmp(alloc_mode, "copy")) {
+    if (!strcmp(alloc_mode, "intra_nodelet")) {
         remote_nodelet = 0;
-    } else if (!strcmp(alloc_mode, "local")) {
+    } else if (!strcmp(alloc_mode, "intra_node")) {
         remote_nodelet = 1;
-    } else if (!strcmp(alloc_mode, "global")) {
+    } else if (!strcmp(alloc_mode, "intra_chick")) {
         remote_nodelet = 8;
     } else {
-        LOG("Invalid alloc_mode, must be one of ['copy', 'local', 'global']\n");
+        LOG("Invalid alloc_mode, must be one of ['intra_nodelet', 'intra_node', 'intra_chick']\n");
         exit(-1);
     }
     // Allocate an array on nodelet 1, and replicate the pointer
@@ -61,6 +61,7 @@ bulk_copy_data_init(bulk_copy_data * data, const char* alloc_mode, long n, long 
         mw_localmalloc(n * sizeof(long), &local_to[remote_nodelet])
     );
 
+    // Initialize the arrays
     emu_local_for_set_long(data->src, n, 1);
     emu_local_for_set_long(data->dst, n, 2);
     mw_free(local_to);
@@ -106,6 +107,17 @@ bulk_copy_emu_for(bulk_copy_data * data)
 //    );
 }
 
+
+void
+bulk_copy_validate(bulk_copy_data* data)
+{
+    for (long i = 0; i < data->n; ++i) {
+        if (data->dst[i] != 1) {
+            LOG("VALIDATION ERROR: c[%li] == %li (supposed to be 1)\n", i, data->dst[i]);
+            exit(1);
+        }
+    }
+}
 
 void bulk_copy_run(
     bulk_copy_data * data,
@@ -175,9 +187,9 @@ int main(int argc, char** argv)
         LOG("Spawn mode %s not implemented!", args.spawn_mode);
     }
 
-//    LOG("Validating results...");
-//    global_stream_validate(&data);
-//    LOG("OK\n");
+    LOG("Validating results...");
+    bulk_copy_validate(&data);
+    LOG("OK\n");
 
     bulk_copy_data_deinit(&data);
     return 0;
