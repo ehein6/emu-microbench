@@ -76,10 +76,9 @@ copy_long_worker(long begin, long end, ...)
 {
     va_list args;
     va_start(args, end);
-    copy_long_worker(begin, end, args);
+    copy_long_worker_var(begin, end, args);
     va_end(args);
 }
-
 
 
 noinline void
