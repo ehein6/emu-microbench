@@ -122,9 +122,7 @@ void hooks_region_begin(const char* name)
     hooks_add_field("region_name", "\"%s\"", name);
 
     if (region_is_active(name)) {
-#ifdef BUILD_FOR_EMUSIM
         starttiming();
-#endif
     }
     MIGRATE(&hooks_timestamp);
 

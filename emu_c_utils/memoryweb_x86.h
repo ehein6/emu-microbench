@@ -27,6 +27,8 @@ extern "C" {
 // stack frame from being carried along. For x86, inlining is good.
 #define noinline
 
+#define starttiming()
+
 #include <sys/time.h>
 #define MEMORYWEB_X86_CLOCK_RATE (500L)
 static inline long CLOCK()
