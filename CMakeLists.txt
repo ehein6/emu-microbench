@@ -22,14 +22,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
     # Disable some errant warnings caused by cilk_for
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cilk-loop-control-var-modification")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-cilk-loop-control-var-modification")
-
-    # Add flag to build for simulator or hardware
-    set(BUILD_FOR_EMUSIM OFF
-        CACHE BOOL "If enabled, will call starttiming() at the beginning of the ROI")
-    if (${BUILD_FOR_EMUSIM})
-        add_definitions(-DBUILD_FOR_EMUSIM)
-    endif()
-
 else()
     # Link with cilk runtime
     link_libraries(cilkrts)
@@ -48,6 +40,8 @@ add_executable(ping_pong ping_pong.c)
 add_executable(local_sort local_sort.c)
 add_executable(bulk_copy bulk_copy.c)
 add_executable(scatter scatter.c)
+
+add_executable(test_varargs test_varargs.c)
 
 # C++ benchmarks
 # Include support libraries
