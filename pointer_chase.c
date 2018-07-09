@@ -140,18 +140,29 @@ relink_worker(long begin, long end, va_list args)
     }
 }
 
+static inline void *
+get_node_ptr(pointer_chase_data* data, long i) {
+    return mw_arrayindex((long*)data->pool, (size_t)i, (size_t)data->n, sizeof(node));
+}
+
 static void
 relink_worker_1d(long * array, long begin, long end, va_list args)
 {
     pointer_chase_data* data = va_arg(args, pointer_chase_data *);
-    const long nodelets = NODELETS();
-    for (long i = begin; i < end; i += nodelets) {
+    long * indices = data->indices;
+    struct node** pool = data->pool;
+    long n = data->n;
+    for (long i = begin; i < end; i += NODELETS()) {
         // String pointers together according to the index
-        long a = data->indices[i];
-        long b = data->indices[i == data->n - 1 ? 0 : i + 1];
-        data->pool[a]->next = data->pool[b]; //mw_arrayindex((long*)data->pool, (size_t)b, (size_t)data->n, sizeof(node));
+        long a = indices[i];
+        long b = indices[i == n - 1 ? 0 : i + 1];
+
+        struct node* node_a = get_node_ptr(data, a);
+        struct node* node_b = get_node_ptr(data, b);
+
+        node_a->next = node_b;
         // Initialize payload
-        data->pool[a]->weight = i;
+        node_a->weight = i;
     }
 }
 
@@ -173,16 +184,6 @@ relink_worker_local(long begin, long end, va_list args)
             data->pool[a]->weight = i;
         }
     }
-}
-
-static void
-relink_spawner(void * hint, long nodelet_id, va_list args)
-{
-    (void)hint;
-    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
-    emu_local_for(0, data->n, LOCAL_GRAIN_MIN(data->n, 64),
-        relink_worker_local, data, nodelet_id
-    );
 }
 
 void
@@ -340,7 +341,9 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     cilk_sync;
 
     LOG("Linking nodes together...\n");
-    emu_for_each_nodelet(data->indices, relink_spawner, data);
+    emu_1d_array_apply((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
+        relink_worker_1d, data
+    );
 
     LOG("Chop\n");
     // Chop up the list so there is one chunk per thread
@@ -350,11 +353,10 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         long first_index = i * chunk_size;
         long last_index = (i+1) * chunk_size - 1;
 
-
-        LOG("Thread %li will start at element %li and end at element %li\n", i,
-            data->indices[first_index],
-            data->indices[last_index]
-        );
+//        LOG("Thread %li will start at element %li and end at element %li\n", i,
+//            data->indices[first_index],
+//            data->indices[last_index]
+//        );
 
         // Store a pointer for this thread's head of the list
         data->heads[i] = data->pool[data->indices[first_index]];
