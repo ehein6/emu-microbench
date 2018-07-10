@@ -4,23 +4,12 @@ Microbenchmarks to test the performance characteristics of the Emu Chick.
 
 # Building
 
-Build for emu hardware:
+Build for emu hardware/simulator:
 ```
 mkdir build-hw && cd build-hw
 cmake .. \
 -DCMAKE_BUILD_TYPE=Release \
--DCMAKE_TOOLCHAIN_FILE=../cmake/emu-cxx-toolchain.cmake \
--DBUILD_FOR_EMUSIM=OFF
-make -j4
-```
-
-Build for emu simulator:
-```
-mkdir build-sim && cd build-sim
-cmake .. \
--DCMAKE_BUILD_TYPE=Release \
--DCMAKE_TOOLCHAIN_FILE=../cmake/emu-cxx-toolchain.cmake \
--DBUILD_FOR_EMUSIM=ON
+-DCMAKE_TOOLCHAIN_FILE=../cmake/emu-cxx-toolchain.cmake
 make -j4
 ```
 
