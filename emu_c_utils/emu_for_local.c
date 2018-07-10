@@ -84,7 +84,7 @@ emu_local_for_copy_long_worker(long begin, long end, va_list args)
 void
 emu_local_for_copy_long(long * dst, long * src, long n)
 {
-    emu_local_for(0, n, LOCAL_GRAIN(n),
+    emu_local_for(0, n, LOCAL_GRAIN_MIN(n, 64),
         emu_local_for_copy_long_worker, dst, src
     );
 }
