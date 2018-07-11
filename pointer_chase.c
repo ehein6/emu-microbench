@@ -322,9 +322,9 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 //        );
 
         // Store a pointer for this thread's head of the list
-        data->heads[i] = data->pool[data->indices[first_index]];
+        data->heads[i] = get_node_ptr(data, data->indices[first_index]);
         // Set this thread's tail to null so it knows where to stop
-        data->pool[data->indices[last_index]]->next = NULL;
+        get_node_ptr(data, data->indices[last_index])->next = NULL;
     }
 }
 
