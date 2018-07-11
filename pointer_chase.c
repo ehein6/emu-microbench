@@ -126,22 +126,7 @@ strided_index_init_worker(long begin, long end, va_list args)
     }
 }
 
-// Links the nodes of the list according to the index array
-noinline void
-relink_worker(long begin, long end, va_list args)
-{
-    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
-    for (long i = begin; i < end; ++i) {
-        // String pointers together according to the index
-        long a = data->indices[i];
-        long b = data->indices[i == data->n - 1 ? 0 : i + 1];
-        data->pool[a]->next = data->pool[b];
-        // Initialize payload
-        data->pool[a]->weight = i;
-    }
-}
-
-static inline void *
+static inline node *
 get_node_ptr(pointer_chase_data* data, long i) {
     return mw_arrayindex((long*)data->pool, (size_t)i, (size_t)data->n, sizeof(node));
 }
@@ -164,26 +149,6 @@ relink_worker_1d(long * array, long begin, long end, va_list args)
         node_a->next = node_b;
         // Initialize payload
         node_a->weight = i;
-    }
-}
-
-static void
-relink_worker_local(long begin, long end, va_list args)
-{
-    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
-    const long nodelet_id = va_arg(args, long);
-    const long nodelets = NODELETS();
-
-    for (long i = begin; i < end; ++i) {
-        long a = data->indices[i];
-        // Determine if a is local
-        if (a % nodelets == nodelet_id) {
-            // Connect node a to node b
-            long b = data->indices[i == data->n - 1 ? 0 : i + 1];
-            data->pool[a]->next = mw_arrayindex((long*)data->pool, (size_t)b, (size_t)data->n, sizeof(node));
-            // Initialize payload
-            data->pool[a]->weight = i;
-        }
     }
 }
 
