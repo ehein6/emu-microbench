@@ -136,15 +136,15 @@ relink_worker_1d(long * array, long begin, long end, va_list args)
 {
     pointer_chase_data* data = va_arg(args, pointer_chase_data *);
     long * indices = data->indices;
-    struct node** pool = data->pool;
+    node** pool = data->pool;
     long n = data->n;
     for (long i = begin; i < end; i += NODELETS()) {
         // String pointers together according to the index
         long a = indices[i];
         long b = indices[i == n - 1 ? 0 : i + 1];
 
-        struct node* node_a = get_node_ptr(data, a);
-        struct node* node_b = get_node_ptr(data, b);
+        node* node_a = get_node_ptr(data, a);
+        node* node_b = get_node_ptr(data, b);
 
         node_a->next = node_b;
         // Initialize payload
