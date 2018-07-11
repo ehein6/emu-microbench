@@ -41,8 +41,6 @@ add_executable(local_sort local_sort.c)
 add_executable(bulk_copy bulk_copy.c)
 add_executable(scatter scatter.c)
 
-add_executable(test_varargs test_varargs.c)
-
 # C++ benchmarks
 # Include support libraries
 include_directories(emu_cxx_utils)
