@@ -8,6 +8,8 @@ extern "C" {
 #endif
 }
 #include <cinttypes>
+#include <algorithm>
+#include <cmath>
 
 template<typename T>
 class emu_striped_array
@@ -73,8 +75,9 @@ public:
     // Apply a function to each element of the array in parallel
     template <typename F>
     void
-    parallel_apply(long grain, F worker)
+    parallel_apply(F worker, long grain = 0)
     {
+        if (grain == 0) { grain = std::min(2048L, (long)std::ceil(n / 8)); }
         // Spawn a thread at each nodelet
         for (long nodelet_id = 0; nodelet_id < NODELETS() && nodelet_id < n; ++nodelet_id) {
             cilk_spawn parallel_apply_worker_level1(&data[nodelet_id], n, grain, worker);
