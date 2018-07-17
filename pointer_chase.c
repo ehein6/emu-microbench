@@ -419,9 +419,11 @@ void pointer_chase_run(
         hooks_region_begin(name);
         benchmark(data);
         double time_ms = hooks_region_end();
+#ifndef NO_VALIDATE
         // Sum of all integers from 0 to n
         long expected_sum = (data->n * (data->n - 1)) / 2;
         runtime_assert(emu_replicated_reduce_sum_long(&data->sum) == expected_sum, "Validation FAILED!");
+#endif
         double bytes_per_second = time_ms == 0 ? 0 :
             (data->n * sizeof(node)) / (time_ms/1000);
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));

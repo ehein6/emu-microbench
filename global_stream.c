@@ -51,10 +51,11 @@ global_stream_init(global_stream_data * data, long n)
         memcpy(remote_data, data, sizeof(global_stream_data));
     }
 #endif
-
+#ifndef NO_VALIDATE
     emu_chunked_array_set_long(&data->array_a, 1);
     emu_chunked_array_set_long(&data->array_b, 2);
     emu_chunked_array_set_long(&data->array_c, 0);
+#endif
 }
 
 void
@@ -368,11 +369,11 @@ int main(int argc, char** argv)
     } else {
         LOG("Mode %s not implemented!", args.mode);
     }
-
+#ifndef NO_VALIDATE
     LOG("Validating results...");
     global_stream_validate(&data);
     LOG("OK\n");
-
+#endif
     global_stream_deinit(&data);
     return 0;
 }

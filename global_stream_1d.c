@@ -52,10 +52,11 @@ global_stream_init(global_stream_data * data, long n)
     replicated_init_ptr(&data->a, mw_malloc1dlong(n));
     replicated_init_ptr(&data->b, mw_malloc1dlong(n));
     replicated_init_ptr(&data->c, mw_malloc1dlong(n));
-
+#ifndef NO_VALIDATE
     emu_1d_array_apply(data->a, n, GLOBAL_GRAIN(n),
         init_worker, data
     );
+#endif
 }
 
 void
@@ -241,10 +242,11 @@ int main(int argc, char** argv)
     } else {
         LOG("Mode %s not implemented!", args.mode);
     }
-
+#ifndef NO_VALIDATE
     LOG("Validating results...");
     global_stream_validate(&data);
     LOG("OK\n");
+#endif
 
     global_stream_deinit(&data);
     return 0;

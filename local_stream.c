@@ -29,10 +29,11 @@ local_stream_init(local_stream_data * data, long n)
     assert(data->b);
     data->c = malloc(n * sizeof(long));
     assert(data->c);
-
+#ifndef NO_VALIDATE
     emu_local_for_set_long(data->a, n, 1);
     emu_local_for_set_long(data->b, n, 2);
     emu_local_for_set_long(data->c, n, 0);
+#endif
 }
 
 void
@@ -214,11 +215,11 @@ int main(int argc, char** argv)
     } else {
         LOG("Mode %s not implemented!", args.mode);
     }
-
+#ifndef NO_VALIDATE
     LOG("Validating results...");
     local_stream_validate(&data);
     LOG("OK\n");
-
+#endif
     local_stream_deinit(&data);
     return 0;
 }

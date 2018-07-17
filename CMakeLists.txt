@@ -31,6 +31,14 @@ add_subdirectory(emu_c_utils)
 include_directories(emu_c_utils)
 link_libraries(emu_c_utils)
 
+set(ENABLE_VALIDATION "ON"
+    CACHE BOOL "Validate results after each benchmark. The initialization and validation steps may spawn more
+                threads than were requested on the command line."
+)
+if (NOT ENABLE_VALIDATION)
+    add_definitions("-DNO_VALIDATE")
+endif()
+
 add_executable(local_stream local_stream.c)
 add_executable(global_stream global_stream.c)
 add_executable(global_stream_1d global_stream_1d.c)
