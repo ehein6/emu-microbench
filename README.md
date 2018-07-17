@@ -38,9 +38,10 @@ Allocates three arrays (A, B, C) with 2^`log2_num_elements` on a single nodelet.
 - cilk_for - Uses a cilk_for loop
 - serial_spawn - Uses a serial for loop to spawn a thread for each grain-sized chunk of the loop range
 - recursive_spawn - Recursively spawns threads to divide up the loop range
+- library - Uses `emu_local_for` from `emu_c_utils`
 
 ## `global_stream`
-Allocates three arrays (A, B, C) with 2^`log2_num_elements` using a 2D array distributed across all the nodelets. Computes the sum of two vectors (C = A + B) with `num_threads` threads, and reports the average memory bandwidth.
+Allocates three arrays (A, B, C) with 2^`log2_num_elements` using a chunked (malloc2D) array distributed across all the nodelets. Computes the sum of two vectors (C = A + B) with `num_threads` threads, and reports the average memory bandwidth.
 
 ### Usage
 
@@ -55,6 +56,22 @@ Allocates three arrays (A, B, C) with 2^`log2_num_elements` using a 2D array dis
 - recursive_remote_spawn - Recursively spawns threads to divide up the loop range, using remote spawns where possible.
 - serial_remote_spawn - Remote spawns a thread on each nodelet, then divides up work as in serial_spawn
 - serial_remote_spawn_shallow - Like serial_remote_spawn, but all threads are remote spawned from nodelet 0.
+- library - Uses `emu_chunked_array_apply` from `emu_c_utils`.
+
+## `global_stream_1d`
+Allocates three arrays (A, B, C) with 2^`log2_num_elements` using a striped array (malloc1dlong) distributed across all the nodelets. Computes the sum of two vectors (C = A + B) with `num_threads` threads, and reports the average memory bandwidth.
+
+### Usage
+
+`./global_stream_1d mode log2_num_elements num_threads num_trials`
+
+### Modes
+
+- serial - Uses a serial for loop
+- cilk_for - Uses a cilk_for loop
+- serial_spawn - Uses a serial for loop to spawn a thread for each grain-sized chunk of the loop range
+- library - Uses `emu_1d_array_apply` from `emu_c_utils`.
+
 
 ## `pointer_chase`
 

@@ -111,24 +111,6 @@ void local_stream_add_library(local_stream_data * data)
     );
 }
 
-void
-local_stream_add_varargs_worker(long begin, long end, va_list args)
-{
-    long *a = va_arg(args, long*);
-    long *b = va_arg(args, long*);
-    long *c = va_arg(args, long*);
-    for (long i = begin; i < end; ++i) {
-        c[i] = a[i] + b[i];
-    }
-}
-
-void local_stream_add_varargs(local_stream_data * data)
-{
-    emu_local_for(0, data->n, data->n / data->num_threads,
-        local_stream_add_varargs_worker, data->a, data->b, data->c
-    );
-}
-
 void local_stream_run(
     local_stream_data * data,
     const char * name,
@@ -208,8 +190,6 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(local_stream_add_recursive_spawn);
     } else if (!strcmp(args.mode, "library")) {
         RUN_BENCHMARK(local_stream_add_library);
-    } else if (!strcmp(args.mode, "library_varargs")) {
-        RUN_BENCHMARK(local_stream_add_varargs);
     } else if (!strcmp(args.mode, "serial")) {
         RUN_BENCHMARK(local_stream_add_serial);
     } else {
