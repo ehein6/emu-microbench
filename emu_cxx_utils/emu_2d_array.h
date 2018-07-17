@@ -113,7 +113,7 @@ public:
 
 private:
     template <typename F>
-    void
+    static void
     serial_spawn_at_nodelets(long low, long high, long grain, void * hint, F func)
     {
         // Unused pointer parameter makes spawn occur at remote nodelet
@@ -154,8 +154,8 @@ private:
         }
 
         long nodelet_id = low;
-        long begin = nodelet_id * chunk_size;
-        long end = (nodelet_id+1) * chunk_size;
+        long begin = nodelet_id * self->chunk_size;
+        long end = (nodelet_id+1) * self->chunk_size;
         local_recursive_spawn(begin, end, grain, func);
     }
 

@@ -21,22 +21,46 @@ extern "C" {
 #endif
 
 struct benchmark {
+    virtual void initialize() = 0;
     virtual void run(const char * name, long num_trials) = 0;
+    virtual void validate() = 0;
     virtual ~benchmark() {};
 };
 
 template<template <typename> class array_type>
-struct global_stream : public benchmark
+struct global_stream : public benchmark, public repl_new
 {
-    array_type<long> a;
-    array_type<long> b;
-    array_type<long> c;
-    long n;
-    long num_threads;
+    repl<array_type<long>> a;
+    repl<array_type<long>> b;
+    repl<array_type<long>> c;
+    repl<long> n;
+    repl<long> num_threads;
 
     global_stream(long n, long num_threads)
     : a(n), b(n), c(n), n(n), num_threads(num_threads)
     {
+    }
+
+    void
+    initialize() override
+    {
+        // TODO initialize in parallel
+        for (long i = 0; i < n; ++i) {
+            a[i] = 1;
+            b[i] = 2;
+        }
+    }
+
+    void
+    validate() override
+    {
+        // TODO check in parallel
+        for (long i = 0; i < n; ++i) {
+            if (c[i] != 3) {
+                LOG("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", i, c[i]);
+                exit(1);
+            }
+        }
     }
 
     // serial - just a regular for loop
@@ -76,23 +100,23 @@ struct global_stream : public benchmark
     void
     add_serial_remote_spawn()
     {
-        c.parallel_apply(n/num_threads, [this](long i) {
+        c.parallel_apply([this](long i) {
             c[i] = a[i] + b[i];
-        });
+        }, n/num_threads);
     }
 
     void
     add_recursive_remote_spawn()
     {
-        c.parallel_apply(n/num_threads, [this](long i) {
+        c.parallel_apply([this](long i) {
             c[i] = a[i] + b[i];
-        });
+        }, n/num_threads);
     }
 
     void
-    run(const char * name, long num_trials)
+    run(const char * name, long num_trials) override
     {
-        LOG("In run(%s, %li)", name, num_trials);
+        LOG("In run(%s, %li)\n", name, num_trials);
         for (long trial = 0; trial < num_trials; ++trial) {
             hooks_set_attr_i64("trial", trial);
 
@@ -138,9 +162,9 @@ benchmark *
 make_benchmark(const char * layout, long n, long num_threads)
 {
     if (!strcmp(layout, "striped")) {
-        return new mirrored<global_stream<emu_striped_array>>(n, num_threads);
+        return new global_stream<emu_striped_array>(n, num_threads);
     } else if (!strcmp(layout, "chunked")) {
-        return new mirrored<global_stream<emu_2d_array>>(n, num_threads);
+        return new global_stream<emu_2d_array>(n, num_threads);
     } else {
         printf("Layout %s not implemented!", layout);
         exit(1);
@@ -185,14 +209,17 @@ int main(int argc, char** argv)
     long mbytes = n * sizeof(long) / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
     LOG("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", 3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
-    fflush(stdout);
-
-    // Create the benchmark struct with replicated storage
-
     auto * benchmark = make_benchmark(args.layout, n, args.num_threads);
-    printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
-
+#ifndef NO_VALIDATE
+    benchmark->initialize();
+#endif
+    LOG("Doing vector addition using %s\n", args.mode);
     benchmark->run(args.mode, args.num_trials);
+#ifndef NO_VALIDATE
+    LOG("Validating results...");
+    benchmark->validate();
+    LOG("OK\n");
+#endif
 
     delete benchmark;
     return 0;

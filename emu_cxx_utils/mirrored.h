@@ -37,8 +37,8 @@ template <
 // repl<T> behaves as a T with replicated allocation and assignment semantics
 class repl : public T, public repl_new
 {
-    static_assert(std::is_trivially_copyable<T>::value,
-        "repl<T> only works with trivially copyable classes, maybe you want repl_ctor<T>?");
+//    static_assert(std::is_trivially_copyable<T>::value,
+//        "repl<T> only works with trivially copyable classes, maybe you want repl_ctor<T>?");
 public:
     // Returns a reference to the copy of T on the Nth nodelet
     T& get_nth(long n)
