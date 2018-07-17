@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cilk/cilk.h>
+
 template<typename F>
 void
 local_serial_spawn(long low, long high, long grain, F worker)

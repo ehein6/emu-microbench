@@ -21,13 +21,13 @@ extern "C" {
 #define noinline
 
 #include <sys/time.h>
-#define CLOCK_RATE (1e6)
+#define MEMORYWEB_X86_CLOCK_RATE (500L)
 static inline long CLOCK()
 {
     struct timeval tp;
     gettimeofday(&tp,NULL);
     double time_seconds = ( (double) tp.tv_sec + (double) tp.tv_usec * 1.e-6 );
-    return time_seconds * CLOCK_RATE;
+    return time_seconds * (MEMORYWEB_X86_CLOCK_RATE * 1e6);
 }
 
 static inline void *
@@ -74,6 +74,12 @@ mw_localmalloc(size_t sz, void * localpointer)
 {
     (void)localpointer;
     return malloc(sz);
+}
+
+static inline void
+mw_localfree(void * localpointer)
+{
+    free(localpointer);
 }
 
 static inline void *

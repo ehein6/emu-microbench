@@ -11,40 +11,53 @@ extern "C" {
 }
 #include <new>
 #include <type_traits>
+#include <cassert>
+#include <algorithm>
+#include <cmath>
 
 template<typename T>
 class emu_2d_array {
 
 private:
     size_t n;
-    size_t block_size;
+    size_t chunk_size;
     T ** data;
 public:
-    emu_2d_array(size_t n) : n(n)
+    typedef T value_type;
+
+    // Default constructor
+    emu_2d_array() : n(0), chunk_size(0), data(nullptr) {}
+
+    // Constructor
+    emu_2d_array(size_t num_elements) : n(num_elements)
     {
-        // TODO round N up to power of 2
-        block_size = n / NODELETS();
+        // round N up to power of 2 for efficient indexing
+        assert(n > 1);
+        n = 1 << (PRIORITY(n-1)+1);
+
+        chunk_size = n / NODELETS();
         // Allocate 2D array
-        void * raw = mw_malloc2d(NODELETS(), sizeof(T) * block_size);
+        void * raw = mw_malloc2d(NODELETS(), sizeof(T) * chunk_size);
         data = reinterpret_cast<T**>(raw);
         // Call constructor on each element if required
         // TODO do this with parallel macro
         if (!std::is_trivially_default_constructible<T>::value) {
-            long grain = 256;
             // Call default constructor (placement-new) on each element using parallel apply
-            this->parallel_apply(grain, [this](size_t i){
+            this->parallel_apply([this](size_t i){
                 new(&this->operator[](i)) T();
             });
         }
 
     }
+
+    // Destructor
     ~emu_2d_array()
     {
+        if (data == nullptr) { return; }
         // Call destructor on each element if required
         // TODO do this with parallel macro
         if (!std::is_trivially_destructible<T>::value) {
-            long grain = 256;
-            this->parallel_apply(grain, [this](size_t i){
+            this->parallel_apply([this](size_t i){
                 this->operator[](i).~T();
             });
         }
@@ -57,26 +70,50 @@ public:
     emu_2d_array(const emu_2d_array & other) = delete;
     emu_2d_array& operator= (const emu_2d_array &other) = delete;
 
+    // Move constructor
+    emu_2d_array(const emu_2d_array && other)
+    : n(other.n), chunk_size(other.chunk_size), data(other.data)
+    {
+        other.data = nullptr;
+    }
+
+    // Move assignment
+    emu_2d_array& operator= (emu_2d_array &&other)
+    {
+        if (this != &other) {
+            n = other.n;
+            chunk_size = other.chunk_size;
+            data = other.data;
+            other.data = nullptr;
+        }
+        return *this;
+    }
+
     T&
     operator[] (size_t i)
     {
-        // data[i / block_size][i % block_size]
-        return data[i >> PRIORITY(block_size)][i&(block_size-1)];
+        assert(data);
+        assert(i < n);
+        // data[i / chunk_size][i % chunk_size]
+        return data[i >> PRIORITY(chunk_size)][i&(chunk_size-1)];
     }
 
     const T&
     operator[] (size_t i) const
     {
-        // data[i / block_size][i % block_size]
-        return data[i >> PRIORITY(block_size)][i&(block_size-1)];
+        assert(data);
+        assert(i < n);
+        // data[i / chunk_size][i % chunk_size]
+        return data[i >> PRIORITY(chunk_size)][i&(chunk_size-1)];
     }
 
     size_t get_size() const { return n; }
-    size_t get_block_size() const { return block_size; }
+    size_t get_chunk_size() const { return chunk_size; }
+    T** get_data() { return data; }
 
 private:
     template <typename F>
-    static noinline void
+    static void
     serial_spawn_at_nodelets(long low, long high, long grain, void * hint, F func)
     {
         // Unused pointer parameter makes spawn occur at remote nodelet
@@ -92,8 +129,8 @@ public:
     {
         // Spawn a thread at each nodelet
         for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
-            long begin = nodelet_id * block_size;
-            long end = (nodelet_id+1) * block_size;
+            long begin = nodelet_id * chunk_size;
+            long end = (nodelet_id+1) * chunk_size;
             cilk_spawn serial_spawn_at_nodelets(begin, end, grain, data[nodelet_id], func);
         }
     }
@@ -117,8 +154,8 @@ private:
         }
 
         long nodelet_id = low;
-        long begin = nodelet_id * self->block_size;
-        long end = (nodelet_id+1) * self->block_size;
+        long begin = nodelet_id * self->chunk_size;
+        long end = (nodelet_id+1) * self->chunk_size;
         local_recursive_spawn(begin, end, grain, func);
     }
 
@@ -134,8 +171,9 @@ public:
     // Apply a function to each element of the array in parallel
     template <typename F>
     void
-    parallel_apply(long grain, F func)
+    parallel_apply(F func, long grain=0)
     {
+        if (grain == 0) { grain = std::min(2048L, (long)std::ceil(n / 8)); }
         parallel_apply_serial_spawn(grain, func);
     }
 };
