@@ -11,6 +11,10 @@ extern "C" {
 #include <algorithm>
 #include <cmath>
 
+/**
+ * Encapsulates a striped array ( @c mw_malloc1dlong).
+ * @tparam T Element type. Must be a 64-bit type (generally @c long or a pointer type).
+ */
 template<typename T>
 class emu_striped_array
 {
@@ -20,9 +24,13 @@ private:
     T * data;
 public:
     typedef T value_type;
-    emu_striped_array(long n) : n(n)
+    /**
+     * Constructs a emu_striped_array<T>
+     * @param n Number of elements
+     */
+    explicit emu_striped_array(long n) : n(n)
     {
-        data = reinterpret_cast<T*>(mw_malloc1dlong(n));
+        data = static_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
     }
     ~emu_striped_array()
     {
@@ -45,7 +53,7 @@ public:
         return data[i];
     }
 
-
+private:
     template<typename F>
     static void
     parallel_apply_worker_level2(long begin, long end, F worker)
@@ -71,8 +79,12 @@ public:
             cilk_spawn parallel_apply_worker_level2(first, last, worker);
         }
     }
-
-    // Apply a function to each element of the array in parallel
+public:
+    /**
+     * Applies a function to each element of the array in parallel.
+     * @param worker Function to apply to each element. Argument is index of element.
+     * @param grain Minimum number of elements to assign to each thread.
+     */
     template <typename F>
     void
     parallel_apply(F worker, long grain = 0)
