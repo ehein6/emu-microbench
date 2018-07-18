@@ -65,7 +65,7 @@ public:
     }
 
     // Initializes all copies to the same value
-    void
+    repl&
     operator=(const T& rhs)
     {
         for (long i = 0; i < NODELETS(); ++i) {
@@ -73,6 +73,7 @@ public:
             // Assign value to remote copy
             memcpy(remote, rhs, sizeof(T));
         }
+        return *this;
     }
 };
 
@@ -112,10 +113,11 @@ public:
     }
 
     // Initializes all copies to the same value
-    void
+    repl&
     operator=(T rhs)
     {
         mw_replicated_init(reinterpret_cast<long*>(&val), reinterpret_cast<long>(rhs));
+        return *this;
     }
 
     // If T is a pointer type, allow users to dereference it
