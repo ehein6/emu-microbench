@@ -15,6 +15,10 @@ extern "C" {
 #include <algorithm>
 #include <cmath>
 
+/**
+ * Encapsulates a chunked array ( Blocked allocation with @c mw_malloc2d).
+ * @tparam T Element type
+ */
 template<typename T>
 class emu_2d_array {
 
@@ -28,8 +32,11 @@ public:
     // Default constructor
     emu_2d_array() : n(0), chunk_size(0), data(nullptr) {}
 
-    // Constructor
-    emu_2d_array(size_t num_elements) : n(num_elements)
+    /**
+     * Constructs an emu_2d_array
+     * @param num_elements Number of elements
+     */
+    explicit emu_2d_array(size_t num_elements) : n(num_elements)
     {
         // round N up to power of 2 for efficient indexing
         assert(n > 1);
@@ -38,7 +45,7 @@ public:
         chunk_size = n / NODELETS();
         // Allocate 2D array
         void * raw = mw_malloc2d(NODELETS(), sizeof(T) * chunk_size);
-        data = reinterpret_cast<T**>(raw);
+        data = static_cast<T**>(raw);
         // Call constructor on each element if required
         // TODO do this with parallel macro
         if (!std::is_trivially_default_constructible<T>::value) {
@@ -71,14 +78,14 @@ public:
     emu_2d_array& operator= (const emu_2d_array &other) = delete;
 
     // Move constructor
-    emu_2d_array(const emu_2d_array && other)
+    emu_2d_array(emu_2d_array && other) noexcept
     : n(other.n), chunk_size(other.chunk_size), data(other.data)
     {
         other.data = nullptr;
     }
 
     // Move assignment
-    emu_2d_array& operator= (emu_2d_array &&other)
+    emu_2d_array& operator= (emu_2d_array &&other) noexcept
     {
         if (this != &other) {
             n = other.n;
@@ -168,7 +175,11 @@ public:
         recursive_spawn_at_nodelets(0, NODELETS(), grain, nullptr, this, func);
     }
 
-    // Apply a function to each element of the array in parallel
+    /**
+     * Apply a function to each element of the array in parallel
+     * @param func Function to apply to each element. Argument is the index of the array element.
+     * @param grain Minimum number of elements to assign to each thread.
+     */
     template <typename F>
     void
     parallel_apply(F func, long grain=0)
