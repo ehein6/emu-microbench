@@ -60,10 +60,11 @@ bulk_copy_data_init(bulk_copy_data * data, const char* alloc_mode, long n, long 
     init_replicated_ptr(&data->dst,
         mw_localmalloc(n * sizeof(long), &local_to[remote_nodelet])
     );
-
+#ifndef NO_VALIDATE
     // Initialize the arrays
     emu_local_for_set_long(data->src, n, 1);
     emu_local_for_set_long(data->dst, n, 2);
+#endif
     mw_free(local_to);
 }
 
@@ -186,10 +187,11 @@ int main(int argc, char** argv)
     } else {
         LOG("Spawn mode %s not implemented!", args.spawn_mode);
     }
-
+#ifndef NO_VALIDATE
     LOG("Validating results...");
     bulk_copy_validate(&data);
     LOG("OK\n");
+#endif
 
     bulk_copy_data_deinit(&data);
     return 0;
