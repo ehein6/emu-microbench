@@ -6,10 +6,10 @@
 #include <assert.h>
 #include <string.h>
 #include <hooks.h>
-#include <emu_striped_array.h>
+#include <striped_array.h>
 #include "common.h"
 #include "spawn_templates.h"
-#include "emu_2d_array.h"
+#include "chunked_array.h"
 #include "mirrored.h"
 
 #ifdef __le64__
@@ -19,6 +19,8 @@ extern "C" {
 #else
 #include "memoryweb_x86.h"
 #endif
+
+using namespace emu;
 
 struct benchmark {
     virtual void initialize() = 0;
@@ -162,9 +164,9 @@ benchmark *
 make_benchmark(const char * layout, long n, long num_threads)
 {
     if (!strcmp(layout, "striped")) {
-        return new global_stream<emu_striped_array>(n, num_threads);
+        return new global_stream<striped_array>(n, num_threads);
     } else if (!strcmp(layout, "chunked")) {
-        return new global_stream<emu_2d_array>(n, num_threads);
+        return new global_stream<chunked_array>(n, num_threads);
     } else {
         printf("Layout %s not implemented!", layout);
         exit(1);

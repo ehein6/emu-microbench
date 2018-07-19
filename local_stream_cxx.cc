@@ -10,6 +10,8 @@
 #include "spawn_templates.h"
 #include "common.h"
 
+using namespace emu;
+
 struct local_stream {
     long * a;
     long * b;

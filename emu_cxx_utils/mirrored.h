@@ -27,6 +27,7 @@
  *                  Every copy will be destructed individually.
  */
 
+namespace emu {
 
 /**
  * Overrides default new to always allocate replicated storage for instances of this class.
@@ -330,3 +331,5 @@ public:
         }
     }
 };
+
+} // end namespace emu
