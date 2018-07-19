@@ -15,12 +15,14 @@ extern "C" {
 #include <algorithm>
 #include <cmath>
 
+namespace emu {
+
 /**
  * Encapsulates a chunked array ( Blocked allocation with @c mw_malloc2d).
  * @tparam T Element type
  */
 template<typename T>
-class emu_2d_array {
+class chunked_array {
 
 private:
     size_t n;
@@ -30,13 +32,13 @@ public:
     typedef T value_type;
 
     // Default constructor
-    emu_2d_array() : n(0), chunk_size(0), data(nullptr) {}
+    chunked_array() : n(0), chunk_size(0), data(nullptr) {}
 
     /**
      * Constructs an emu_2d_array
      * @param num_elements Number of elements
      */
-    explicit emu_2d_array(size_t num_elements) : n(num_elements)
+    explicit chunked_array(size_t num_elements) : n(num_elements)
     {
         // round N up to power of 2 for efficient indexing
         assert(n > 1);
@@ -58,7 +60,7 @@ public:
     }
 
     // Destructor
-    ~emu_2d_array()
+    ~chunked_array()
     {
         if (data == nullptr) { return; }
         // Call destructor on each element if required
@@ -74,18 +76,18 @@ public:
     }
 
     // TODO deleting copy constructor and assignment operator for now, we probably don't want to call these anyways
-    emu_2d_array(const emu_2d_array & other) = delete;
-    emu_2d_array& operator= (const emu_2d_array &other) = delete;
+    chunked_array(const chunked_array & other) = delete;
+    chunked_array& operator= (const chunked_array &other) = delete;
 
     // Move constructor
-    emu_2d_array(emu_2d_array && other) noexcept
+    chunked_array(chunked_array && other) noexcept
     : n(other.n), chunk_size(other.chunk_size), data(other.data)
     {
         other.data = nullptr;
     }
 
     // Move assignment
-    emu_2d_array& operator= (emu_2d_array &&other) noexcept
+    chunked_array& operator= (chunked_array &&other) noexcept
     {
         if (this != &other) {
             n = other.n;
@@ -150,7 +152,7 @@ private:
     // The hint comes before the `this` pointer so remote spawn can work.
     template <typename F>
     static noinline void
-    recursive_spawn_at_nodelets(long low, long high, long grain, void * hint, emu_2d_array<T>* self, F func)
+    recursive_spawn_at_nodelets(long low, long high, long grain, void * hint, chunked_array<T>* self, F func)
     {
         for (;;) {
             long count = high - low;
@@ -189,6 +191,8 @@ public:
     }
 
     // Shallow copy constructor
-    emu_2d_array(const emu_2d_array& other, bool)
+    chunked_array(const chunked_array& other, bool)
     : n(other.n), chunk_size(other.chunk_size), data(other.data) {}
 };
+
+} // end namespace emu

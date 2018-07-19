@@ -11,12 +11,14 @@ extern "C" {
 #include <algorithm>
 #include <cmath>
 
+namespace emu {
+
 /**
  * Encapsulates a striped array ( @c mw_malloc1dlong).
  * @tparam T Element type. Must be a 64-bit type (generally @c long or a pointer type).
  */
 template<typename T>
-class emu_striped_array
+class striped_array
 {
     static_assert(sizeof(T) == 8, "emu_striped_array can only hold 64-bit data types");
 private:
@@ -28,18 +30,18 @@ public:
      * Constructs a emu_striped_array<T>
      * @param n Number of elements
      */
-    explicit emu_striped_array(long n) : n(n)
+    explicit striped_array(long n) : n(n)
     {
         data = static_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
     }
-    ~emu_striped_array()
+    ~striped_array()
     {
         mw_free(data);
     }
 
     // TODO deleting copy constructor and assignment operator for now, we probably don't want to call these anyways
-    emu_striped_array(const emu_striped_array & other) = delete;
-    emu_striped_array& operator= (const emu_striped_array &other) = delete;
+    striped_array(const striped_array & other) = delete;
+    striped_array& operator= (const striped_array &other) = delete;
 
     T&
     operator[] (long i)
@@ -97,6 +99,8 @@ public:
     }
 
     // Shallow copy constructor
-    emu_striped_array(const emu_striped_array& other, bool)
+    striped_array(const striped_array& other, bool)
     : n(other.n), data(other.data) {}
 };
+
+} // end namespace emu
