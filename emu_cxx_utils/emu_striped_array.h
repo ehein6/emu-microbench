@@ -95,4 +95,8 @@ public:
             cilk_spawn parallel_apply_worker_level1(&data[nodelet_id], n, grain, worker);
         }
     }
+
+    // Shallow copy constructor
+    emu_striped_array(const emu_striped_array& other, bool)
+    : n(other.n), data(other.data) {}
 };
