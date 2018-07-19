@@ -4,6 +4,34 @@
 #include <functional>
 #include <cstring>
 
+/*
+ * This header provides support for storing C++ objects in replicated memory.
+ * There are several template wrappers to choose from depending on what kind of behavior you want
+ * - repl_new     : Classes that inherit from repl_new will be allocated in replicated memory.
+ *
+ * - repl<T>      : Call constructor locally, then shallow copy onto each remote nodelet.
+ *                  The destructor will be called on only one copy, the other shallow copies ARE NOT DESTRUCTED.
+ *                  The semantics of "shallow copy" depend on the type of T
+ *                      - If T is trivially copyable (no nested objects or custom copy constructor),
+ *                        remote copies will be initialized using memcpy()
+ *                      - If T defines a "shallow copy constructor", this will be used to construct shallow copies
+ *                        The "shallow copy constructor" has the following signature:
+ *                            T(const T& other, bool)
+ *                        The second argument can be ignored.
+ *                      - Alternatively, if shallow_copy(T* dst, const T* src) is defined, this will be used instead.
+ *                  Note that shallow
+ *
+ * - repl_ctor<T> : Call constructor on every nodelet with same arguments.
+ *                  Every copy will be destructed individually.
+ * - repl_copy<T> : Construct locally, then copy-construct onto each remote nodelet.
+ *                  Every copy will be destructed individually.
+ */
+
+
+/**
+ * Overrides default new to always allocate replicated storage for instances of this class.
+ * repl_new is intended to be used as a parent class for distributed data structure types.
+ */
 class repl_new
 {
 public:
@@ -22,11 +50,63 @@ public:
     }
 };
 
-/*
- * Wrapper for replicated object.
- * All writes to this object will be replicated to all nodelets.
- * All reads to this object will be local.
- * Not thread-safe. Only defined for trivially copyable types.
+/**
+ * Default shallow copy operation to be used by repl<T>
+ * Only defined for trivially copyable (i.e. copy constructor == memcpy) types.
+ * In this case there is no difference between a deep copy and a shallow copy.
+ * @tparam T Type with trivial copy semantics
+ * @param dst Pointer to sizeof(T) bytes of uninitialized memory
+ * @param src Pointer to constructed T
+ */
+template<typename T>
+void shallow_copy(
+    typename std::enable_if<std::is_trivially_copyable<T>::value, T>::type * dst,
+    const T * src)
+{
+    memcpy(dst, src, sizeof(T));
+}
+
+/**
+ * If T has a "shallow copy constructor" (copy constructor with additional dummy bool argument)
+ * repl<T> will use this version instead. Otherwise SFINAE will make this one go away.
+ * @tparam T Type with a "shallow copy constructor" (copy constructor with additional dummy bool argument)
+ * @param dst Pointer to sizeof(T) bytes of uninitialized memory
+ * @param src Pointer to constructed T
+ */
+template<typename T>
+void shallow_copy(
+    T * dst,
+    const T * src)
+{
+    const bool shallow = true;
+    new (dst) T(*src, shallow);
+}
+
+/**
+ * repl<T> : Wrapper template to add replicated semantics to a class using shallow copies.
+ *
+ * Assignment:
+ *     Will call the assignment operator on each remote copy.
+ *
+ * Construction:
+ *     Will call T's constructor locally, then shallow copy T onto each remote nodelet.
+ *     The semantics of "shallow copy" depend on the type of T.
+ *
+ *    - If T is trivially copyable (no nested objects or custom copy constructor),
+ *    remote copies will be initialized using memcpy().
+ *
+ *    - If T defines a "shallow copy constructor", this will be used to construct shallow copies.
+ *    The "shallow copy constructor" has the following signature:
+ *     @code T(const T& other, bool) @endcode
+ *    The second argument can be ignored.
+ *
+ *    - Alternatively, if @code shallow_copy(T* dst, const T* src) @endcode is defined,
+ *    this will be used instead.
+ *
+ * Destruction:
+ *     The destructor will be called on only one copy, the other shallow copies ARE NOT DESTRUCTED.
+ *
+ * All other operations (function calls, attribute accesses) will access the local copy of T.
  */
 template <
     // Type being replicated
@@ -34,13 +114,14 @@ template <
     // Size of type, for partial specialization
     size_t = sizeof(T)
 >
-// repl<T> behaves as a T with replicated allocation and assignment semantics
 class repl : public T, public repl_new
 {
-//    static_assert(std::is_trivially_copyable<T>::value,
-//        "repl<T> only works with trivially copyable classes, maybe you want repl_ctor<T>?");
 public:
-    // Returns a reference to the copy of T on the Nth nodelet
+    /**
+     * Returns a reference to the copy of T on the Nth nodelet
+     * @param n nodelet ID
+     * @return Reference the copy of T on the Nth nodelet
+     */
     T& get_nth(long n)
     {
         assert(n < NODELETS());
@@ -59,8 +140,8 @@ public:
         for (long i = 0; i < NODELETS(); ++i) {
             T * remote = &get_nth(i);
             if (local == remote) { continue; }
-            // Copy local to remote
-            memcpy(remote, local, sizeof(T));
+            // Shallow copy copy local to remote
+            shallow_copy(remote, local);
         }
     }
 
@@ -71,13 +152,16 @@ public:
         for (long i = 0; i < NODELETS(); ++i) {
             T * remote = &get_nth(i);
             // Assign value to remote copy
-            memcpy(remote, rhs, sizeof(T));
+            *remote = rhs;
         }
         return *this;
     }
 };
 
-// More efficient version for 8-byte types, avoids calling memcpy
+/**
+ * Partial specialization of repl<T> for integral types.
+ * Need a slightly different implementation here since we can't inherit from primitives.
+ */
 template<typename T>
 class repl<T, 8> : public repl_new
 {
@@ -126,16 +210,29 @@ public:
     operator->() { return val; }
 };
 
-/*
- * Constructs a copy of T in replicated storage on each nodelet.
- * Destructs each T when it goes out of scope.
- * Reads, writes and method calls are performed on the local copy.
+/**
+ * repl_ctor<T> : Wrapper template to add replicated semantics to a class using distributed construction.
+ *
+ * Assignment:
+ *     Will call the assignment operator on the local copy.
+ *
+ * Construction:
+ *     Calls constructor on every nodelet's copy with the same arguments.
+ *
+ * Destruction:
+ *     The destructor will be called on each copy individually.
+ *
+ * All other operations (function calls, attribute accesses) will access the local copy of T.
  */
 template<typename T>
 class repl_ctor : public T, public repl_new
 {
 public:
-    // Returns a reference to the copy of T on the Nth nodelet
+    /**
+     * Returns a reference to the copy of T on the Nth nodelet
+     * @param n nodelet ID
+     * @return Returns a reference to the copy of T on the Nth nodelet
+     */
     T& get_nth(long n)
     {
         assert(n < NODELETS());
@@ -160,6 +257,67 @@ public:
     }
 
     ~repl_ctor()
+    {
+        // Pointer to the object on this nodelet, which has already been destructed
+        T * local = &get_nth(NODE_ID());
+        // For each nodelet...
+        for (long n = 0; n < NODELETS(); ++n) {
+            // Explicitly call destructor to tear down each remote object
+            T * remote = &get_nth(n);
+            if (local == remote) continue;
+            remote->~T();
+        }
+    }
+};
+
+
+/**
+ * repl_ctor<T> : Wrapper template to add replicated semantics to a class using distributed copy construction.
+ *
+ * Assignment:
+ *     Will call the assignment operator on the local copy.
+ *
+ * Construction:
+ *     Calls constructor on local nodelet, then copy-constructs to each remote nodelet.
+ *
+ * Destruction:
+ *     The destructor will be called on each copy individually.
+ *
+ * All other operations (function calls, attribute accesses) will access the local copy of T.
+ */
+template<typename T>
+class repl_copy : public T, public repl_new
+{
+public:
+    /**
+     * Returns a reference to the copy of T on the Nth nodelet
+     * @param n nodelet ID
+     * @return Returns a reference to the copy of T on the Nth nodelet
+     */
+    T& get_nth(long n)
+    {
+        assert(n < NODELETS());
+        return *static_cast<T*>(mw_get_nth(this, n));
+    }
+
+    // Constructor template - allows repl_ctor<T> to be constructed just like a T
+    template<typename... Args>
+    explicit repl_copy(Args&&... args)
+    // Call T's constructor with forwarded args
+    : T(std::forward<Args>(args)...)
+    {
+        // Pointer to the object on this nodelet, which has already been constructed
+        T * local = &get_nth(NODE_ID());
+        // For each nodelet...
+        for (long n = 0; n < NODELETS(); ++n) {
+            // Use copy constructor  to construct each remote object
+            T * remote = &get_nth(n);
+            if (local == remote) continue;
+            new (remote) T(*local);
+        }
+    }
+
+    ~repl_copy()
     {
         // Pointer to the object on this nodelet, which has already been destructed
         T * local = &get_nth(NODE_ID());

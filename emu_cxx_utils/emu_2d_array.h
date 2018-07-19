@@ -187,4 +187,8 @@ public:
         if (grain == 0) { grain = std::min(2048L, (long)std::ceil(n / 8)); }
         parallel_apply_serial_spawn(grain, func);
     }
+
+    // Shallow copy constructor
+    emu_2d_array(const emu_2d_array& other, bool)
+    : n(other.n), chunk_size(other.chunk_size), data(other.data) {}
 };
