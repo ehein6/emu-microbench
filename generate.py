@@ -48,7 +48,7 @@ def check_local_config(local_config):
             if not os.path.isfile(path):
                 raise Exception("Invalid path for {} executable: {}".format(benchmark, path))
 
-        if local_config["platform"] not in ["native", "emusim", "emu", "emusim-chick-box", "emusim-validation"]:
+        if local_config["platform"] not in ["native", "emusim", "emusim_profile", "emu", "emusim-chick-box", "emusim-validation"]:
             raise Exception("Platform {} not supported".format(local_config["platform"]))
 
     except KeyError as e:
@@ -116,7 +116,14 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
     # Emu hardware (multi node) command line
     elif local_config["platform"] == "emuchick":
         template += """
-        emu_multinode_exec 143.215.138.20 0 {exe} -- \\"""
+        emu_multinode_exec 0 {exe} -- \\"""
+
+    # Emu profiler command line
+    elif "emusim_profile" in local_config["platform"]:
+        template += """
+        {emusim_profile_exe} \\
+        {outdir}/profile.{name} \\
+        {exe} \\"""
 
     # Emu simulator command line
     elif "emusim" in local_config["platform"]:
@@ -126,13 +133,18 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
         -o {outdir}/{name} \\
         -- {exe} \\"""
 
-    if args.benchmark in ["local_stream", "global_stream"]:
+    if args.benchmark in ["local_stream", "global_stream", "global_stream_1d", "local_stream_cxx"]:
         # Generate the benchmark command line
         template += """
         {spawn_mode} {log2_num_elements} {num_threads} 1 \\
         &>> $LOGFILE
         """
-
+    elif args.benchmark in ["global_stream_cxx"]:
+        # Generate the benchmark command line
+        template += """
+        {spawn_mode} {layout} {log2_num_elements} {num_threads} 1 \\
+        &>> $LOGFILE
+        """
     elif args.benchmark == "pointer_chase":
         # Generate the benchmark command line
         template += """
@@ -196,7 +208,7 @@ def main():
     elif os.listdir(out_dir) != []:
         # Clean out results
         if args.clean:
-            os.remove(os.path.join(args.dir, "launched"))
+            # os.remove(os.path.join(args.dir, "launched"))
             shutil.rmtree(out_dir)
             os.makedirs(out_dir)
         # Just generate new ones over the top
