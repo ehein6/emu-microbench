@@ -25,8 +25,8 @@ template<typename T>
 class chunked_array {
 
 private:
-    size_t n;
-    size_t chunk_size;
+    long n;
+    long chunk_size;
     T ** data;
 public:
     typedef T value_type;
@@ -38,7 +38,7 @@ public:
      * Constructs an emu_2d_array
      * @param num_elements Number of elements
      */
-    explicit chunked_array(size_t num_elements) : n(num_elements)
+    explicit chunked_array(long num_elements) : n(num_elements)
     {
         // round N up to power of 2 for efficient indexing
         assert(n > 1);
@@ -52,7 +52,7 @@ public:
         // TODO do this with parallel macro
         if (!std::is_trivially_default_constructible<T>::value) {
             // Call default constructor (placement-new) on each element using parallel apply
-            this->parallel_apply([this](size_t i){
+            this->parallel_apply([this](long i){
                 new(&this->operator[](i)) T();
             });
         }
@@ -66,7 +66,7 @@ public:
         // Call destructor on each element if required
         // TODO do this with parallel macro
         if (!std::is_trivially_destructible<T>::value) {
-            this->parallel_apply([this](size_t i){
+            this->parallel_apply([this](long i){
                 this->operator[](i).~T();
             });
         }
@@ -99,7 +99,7 @@ public:
     }
 
     T&
-    operator[] (size_t i)
+    operator[] (long i)
     {
         assert(data);
         assert(i < n);
@@ -108,7 +108,7 @@ public:
     }
 
     const T&
-    operator[] (size_t i) const
+    operator[] (long i) const
     {
         assert(data);
         assert(i < n);
@@ -116,8 +116,8 @@ public:
         return data[i >> PRIORITY(chunk_size)][i&(chunk_size-1)];
     }
 
-    size_t get_size() const { return n; }
-    size_t get_chunk_size() const { return chunk_size; }
+    long get_size() const { return n; }
+    long get_chunk_size() const { return chunk_size; }
     T** get_data() { return data; }
 
 private:
