@@ -37,6 +37,17 @@ public:
         data = static_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
     }
 
+    // Initializer-list constructor
+    striped_array(std::initializer_list<T> list) : striped_array(list.size()) {
+        for (size_t i = 0; i < list.size(); ++i) {
+            data[i] = *(list.begin() + i);
+        }
+    }
+
+    typedef T* iterator;
+    iterator begin () { return data; }
+    iterator end () { return data + n; }
+
     // Destructor
     ~striped_array()
     {
@@ -52,10 +63,10 @@ public:
     }
 
     // Copy constructor
-    striped_array(const striped_array & other) : n(other.n)
+    striped_array(const striped_array & other) : striped_array(other.n)
     {
         // Copy elements over in parallel
-        other.parallel_apply([=](long i) {
+        other.parallel_apply([&](long i) {
             data[i] = other[i];
         });
     }
@@ -68,7 +79,7 @@ public:
     }
 
     // Move constructor (using copy-and-swap idiom)
-    striped_array(striped_array&& other) : striped_array()
+    striped_array(striped_array&& other) noexcept : striped_array()
     {
         swap(*this, other);
     }
@@ -125,7 +136,7 @@ public:
      */
     template <typename F>
     void
-    parallel_apply(F worker, long grain = 0)
+    parallel_apply(F worker, long grain = 0) const
     {
         if (grain == 0) { grain = std::min(2048L, (long)std::ceil(n / 8)); }
         // Spawn a thread at each nodelet

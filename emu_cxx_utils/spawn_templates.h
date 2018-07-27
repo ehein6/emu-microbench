@@ -53,7 +53,7 @@ local_recursive_spawn(long low, long high, long grain, F worker)
 
 template <typename F>
 void
-local_spawn(long low, long high, long grain, F worker)
+local_spawn(long low, long high, F worker, long grain = 64)
 {
     local_serial_spawn(low, high, grain, worker);
 }
