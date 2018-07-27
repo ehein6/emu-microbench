@@ -24,6 +24,8 @@ class striped_array
 private:
     long n;
     T * data;
+    // Default constructor
+    striped_array() = default;
 public:
     typedef T value_type;
     /**
@@ -34,14 +36,46 @@ public:
     {
         data = static_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
     }
+
+    // Destructor
     ~striped_array()
     {
         mw_free(data);
     }
 
-    // TODO deleting copy constructor and assignment operator for now, we probably don't want to call these anyways
-    striped_array(const striped_array & other) = delete;
-    striped_array& operator= (const striped_array &other) = delete;
+    friend void
+    swap(striped_array& first, striped_array& second)
+    {
+        using std::swap;
+        swap(first.n, second.n);
+        swap(first.data, second.data);
+    }
+
+    // Copy constructor
+    striped_array(const striped_array & other) : n(other.n)
+    {
+        // Copy elements over in parallel
+        other.parallel_apply([=](long i) {
+            data[i] = other[i];
+        });
+    }
+
+    // Assignment operator (using copy-and-swap idiom)
+    striped_array& operator= (striped_array other)
+    {
+        swap(*this, other);
+        return *this;
+    }
+
+    // Move constructor (using copy-and-swap idiom)
+    striped_array(striped_array&& other) : striped_array()
+    {
+        swap(*this, other);
+    }
+
+    // Shallow copy constructor (used for repl<T>)
+    striped_array(const striped_array& other, bool)
+    : n(other.n), data(other.data) {}
 
     T&
     operator[] (long i)
@@ -54,6 +88,8 @@ public:
     {
         return data[i];
     }
+
+    long size() const { return n; }
 
 private:
     template<typename F>
@@ -97,10 +133,6 @@ public:
             cilk_spawn parallel_apply_worker_level1(&data[nodelet_id], n, grain, worker);
         }
     }
-
-    // Shallow copy constructor
-    striped_array(const striped_array& other, bool)
-    : n(other.n), data(other.data) {}
 };
 
 } // end namespace emu
