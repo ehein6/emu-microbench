@@ -49,7 +49,6 @@ public:
         void * raw = mw_malloc2d(NODELETS(), sizeof(T) * chunk_size);
         data = static_cast<T**>(raw);
         // Call constructor on each element if required
-        // TODO do this with parallel macro
         if (!std::is_trivially_default_constructible<T>::value) {
             // Call default constructor (placement-new) on each element using parallel apply
             this->parallel_apply([this](long i){
@@ -64,7 +63,6 @@ public:
     {
         if (data == nullptr) { return; }
         // Call destructor on each element if required
-        // TODO do this with parallel macro
         if (!std::is_trivially_destructible<T>::value) {
             this->parallel_apply([this](long i){
                 this->operator[](i).~T();
@@ -75,28 +73,38 @@ public:
         mw_free(data);
     }
 
-    // TODO deleting copy constructor and assignment operator for now, we probably don't want to call these anyways
-    chunked_array(const chunked_array & other) = delete;
-    chunked_array& operator= (const chunked_array &other) = delete;
+    friend void
+    swap(chunked_array& first, chunked_array& second)
+    {
+        using std::swap;
+        swap(first.n, second.n);
+        swap(first.chunk_size, second.chunk_size);
+        swap(first.data, second.data);
+    }
+
+    // Copy constructor
+    chunked_array(const chunked_array & other) : n(other.n), chunk_size(other.chunk_size) {
+        other.parallel_apply([=](long i) {
+            // TODO call parallel memcpy on each block instead of using index operator
+            this->operator[](i) = other[i];
+        });
+    }
+
+    // Assignment operator (using copy-and-swap idiom)
+    chunked_array& operator= (chunked_array other)
+    {
+        swap(*this, other);
+    }
 
     // Move constructor
-    chunked_array(chunked_array && other) noexcept
-    : n(other.n), chunk_size(other.chunk_size), data(other.data)
+    chunked_array(chunked_array && other) noexcept : chunked_array()
     {
-        other.data = nullptr;
+        swap(*this, other);
     }
 
-    // Move assignment
-    chunked_array& operator= (chunked_array &&other) noexcept
-    {
-        if (this != &other) {
-            n = other.n;
-            chunk_size = other.chunk_size;
-            data = other.data;
-            other.data = nullptr;
-        }
-        return *this;
-    }
+    // Shallow copy constructor (for repl<T>)
+    chunked_array(const chunked_array& other, bool)
+    : n(other.n), chunk_size(other.chunk_size), data(other.data) {}
 
     T&
     operator[] (long i)
@@ -189,10 +197,6 @@ public:
         if (grain == 0) { grain = std::min(2048L, (long)std::ceil(n / 8)); }
         parallel_apply_serial_spawn(grain, func);
     }
-
-    // Shallow copy constructor
-    chunked_array(const chunked_array& other, bool)
-    : n(other.n), chunk_size(other.chunk_size), data(other.data) {}
 };
 
 } // end namespace emu
