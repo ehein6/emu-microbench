@@ -10,7 +10,6 @@ extern "C" {
 #include <cinttypes>
 #include <algorithm>
 #include <cmath>
-#include <backward/hashtable.h>
 #include "striped_array.h"
 #include "mirrored.h"
 
@@ -115,9 +114,7 @@ public:
         T* first;
         T* last;
     public:
-        subarray(T * first, T * last) : first(first), last(last) {
-
-        }
+        subarray(T * first, T * last) : first(first), last(last) {}
 
         T& operator[] (long i) { return *(first + i * NODELETS()); }
 
@@ -142,7 +139,7 @@ public:
 
         iterator begin() { return iterator(first); }
         iterator end() { return iterator(last); }
-        long size() { return last - first; }
+        long size() { return (last - first) / NODELETS(); }
     };
 
     subarray
