@@ -175,7 +175,7 @@ public:
     };
 
     iterator begin() { return iterator(*this, 0); }
-    iterator end() { return iterator(*this, offsets_begin.size()); }
+    iterator end() { return iterator(*this, offsets_begin.size()-1); }
 
 };
 
