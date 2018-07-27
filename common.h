@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stdio.h>
+#include <stdlib.h>
+
+
 // Logging macro. Flush right away since Emu hardware usually doesn't
 #define LOG(...) fprintf(stderr, __VA_ARGS__); fflush(stderr);
 
