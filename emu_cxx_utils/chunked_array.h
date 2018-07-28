@@ -194,7 +194,7 @@ public:
     void
     parallel_apply(F func, long grain=0)
     {
-        if (grain == 0) { grain = std::min(2048L, (long)std::ceil(n / 8)); }
+        if (grain == 0) { grain = 256; }
         parallel_apply_serial_spawn(grain, func);
     }
 };

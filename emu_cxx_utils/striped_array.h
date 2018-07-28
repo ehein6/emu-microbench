@@ -10,6 +10,8 @@ extern "C" {
 #include <cinttypes>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <cstdio>
 
 namespace emu {
 
@@ -25,7 +27,7 @@ private:
     long n;
     T * data;
     // Default constructor
-    striped_array() = default;
+    striped_array() : n(0), data(nullptr) {};
 public:
     typedef T value_type;
     /**
@@ -34,24 +36,36 @@ public:
      */
     explicit striped_array(long n) : n(n)
     {
+        printf("striped_array: ctor\n");
         data = static_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
     }
 
     // Initializer-list constructor
     striped_array(std::initializer_list<T> list) : striped_array(list.size()) {
+        printf("striped_array: ctor(list)\n");
         for (size_t i = 0; i < list.size(); ++i) {
             data[i] = *(list.begin() + i);
         }
     }
 
     typedef T* iterator;
-    iterator begin () { return data; }
-    iterator end () { return data + n; }
+    iterator begin ()               { return data; }
+    iterator end ()                 { return data + n; }
+    typedef const T* const_iterator;
+    const_iterator cbegin () const  { return data; }
+    const_iterator cend () const    { return data + n; }
+
+
+    T& front()              { return data[0]; }
+    const T& front() const  { return data[0]; }
+    T& back()               { return data[n-1]; }
+    const T& back() const   { return data[n-1]; }
 
     // Destructor
     ~striped_array()
     {
-        mw_free(data);
+        printf("striped_array: dtor\n");
+        if (data) { mw_free(data); }
     }
 
     friend void
@@ -65,6 +79,7 @@ public:
     // Copy constructor
     striped_array(const striped_array & other) : striped_array(other.n)
     {
+        printf("striped_array: copy ctor\n");
         // Copy elements over in parallel
         other.parallel_apply([&](long i) {
             data[i] = other[i];
@@ -74,6 +89,7 @@ public:
     // Assignment operator (using copy-and-swap idiom)
     striped_array& operator= (striped_array other)
     {
+        printf("striped_array: assign\n");
         swap(*this, other);
         return *this;
     }
@@ -81,12 +97,13 @@ public:
     // Move constructor (using copy-and-swap idiom)
     striped_array(striped_array&& other) noexcept : striped_array()
     {
+        printf("striped_array: move\n");
         swap(*this, other);
     }
 
     // Shallow copy constructor (used for repl<T>)
     striped_array(const striped_array& other, bool)
-    : n(other.n), data(other.data) {}
+    : n(other.n), data(other.data) { printf("striped_array: shallow\n"); }
 
     T&
     operator[] (long i)
@@ -138,7 +155,8 @@ public:
     void
     parallel_apply(F worker, long grain = 0) const
     {
-        if (grain == 0) { grain = std::min(2048L, (long)std::ceil(n / 8)); }
+        // TODO fix default grain size calculation
+        if (grain == 0) { grain = 256; }
         // Spawn a thread at each nodelet
         for (long nodelet_id = 0; nodelet_id < NODELETS() && nodelet_id < n; ++nodelet_id) {
             cilk_spawn parallel_apply_worker_level1(&data[nodelet_id], n, grain, worker);

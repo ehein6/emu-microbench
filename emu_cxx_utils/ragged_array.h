@@ -34,22 +34,22 @@ private:
 
     ragged_array(long num_items, striped_array<long>&& offsets_begin, striped_array<long>&& offsets_end)
     : items(num_items)
-    , offsets_begin(offsets_begin)
-    , offsets_end(offsets_end)
+    , offsets_begin(std::move(offsets_begin))
+    , offsets_end(std::move(offsets_end))
     {
     }
 
-    static long
-    compute_chunk_size(/* TODO const */ striped_array<long>& offsets)
+    static void
+    compute_local_offsets(void * hint, long nodelet_id,
+        striped_array<long>& offsets,
+        const striped_array<long>& sizes)
     {
-        striped_array<long> elements_per_nodelet(NODELETS());
-        offsets.parallel_apply([&](long i) {
-            long nodelet = i % NODELETS();
-            // TODO fix nasty access pattern here
-            long size = offsets[i + 1] - offsets[i];
-            REMOTE_ADD(&elements_per_nodelet[nodelet], size);
-        });
-        return *std::max_element(elements_per_nodelet.begin(), elements_per_nodelet.end());
+        long cum_sum = nodelet_id;
+        for (long i = nodelet_id; i < sizes.size(); i += NODELETS()) {
+            offsets[i] = cum_sum;
+            cum_sum += sizes[i];
+        }
+        offsets[sizes.size()] = cum_sum;
     }
 
     // Helper function to compute list of offsets from array of bucket sizes
@@ -59,14 +59,11 @@ private:
         // Make another array with the same length
         // TODO should be replicated
         striped_array<long> offsets(sizes.size() + 1);
-
         // TODO need prefix scan here
-        long cum_sum = 0;
-        for (long i = 0; i < sizes.size(); ++i) {
-            offsets[i] = cum_sum;
-            cum_sum += sizes[i];
+        for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
+            cilk_spawn compute_local_offsets(&offsets[nodelet_id], nodelet_id, offsets, sizes);
         }
-        offsets[sizes.size()] = cum_sum;
+        cilk_sync;
         return offsets;
     }
 
@@ -87,6 +84,16 @@ private:
         return end_offsets;
     }
 
+    static long
+    longest_chunk(const striped_array<long>& offsets_end)
+    {
+        // The last offset for each chunk points to one past the end of the local chunk
+        return (*std::max_element(
+            offsets_end.cend() - NODELETS(),
+            offsets_end.cend()
+        ));
+    }
+
 public:
     typedef T value_type;
 
@@ -95,17 +102,8 @@ public:
     from_sizes(const striped_array<long> & sizes)
     {
         auto offsets = compute_offsets(sizes);
-        long num_items = compute_chunk_size(offsets) * NODELETS();
         auto end_offsets = compute_end_offsets(offsets);
-        return ragged_array(num_items, std::move(offsets), std::move(end_offsets));
-    }
-
-    // Construct a ragged array from a list of offsets
-    static ragged_array
-    from_offsets(striped_array<long> offsets)
-    {
-        long num_items = compute_chunk_size(offsets) * NODELETS();
-        auto end_offsets = compute_end_offsets(offsets);
+        long num_items = longest_chunk(offsets) * NODELETS();
         return ragged_array(num_items, std::move(offsets), std::move(end_offsets));
     }
 
@@ -174,6 +172,14 @@ public:
     iterator begin() { return iterator(*this, 0); }
     iterator end() { return iterator(*this, offsets_begin.size()-1); }
 
+    // Debug, print out internal structures to stdout
+    void dump() {
+        printf("%li items\n", items.size());
+        printf("Offsets: \n");
+        for (long i = 0; i < offsets_begin.size(); ++i) {
+            printf("%li: %li-%li\n", i, offsets_begin[i], offsets_end[i]);
+        }
+    }
 };
 
 } // end namespace emu
