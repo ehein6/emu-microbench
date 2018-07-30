@@ -45,11 +45,14 @@ private:
         const striped_array<long>& sizes)
     {
         long cum_sum = nodelet_id;
-        for (long i = nodelet_id; i < sizes.size(); i += NODELETS()) {
+        long i;
+        for (i = nodelet_id; i < sizes.size(); i += NODELETS()) {
+            printf("n[%li]: sizes[%li] = %li\n", nodelet_id, i, sizes[i]);
             offsets[i] = cum_sum;
-            cum_sum += sizes[i];
+            cum_sum += sizes[i] * NODELETS();
         }
-        offsets[sizes.size()] = cum_sum;
+        printf("n[%li]: offsets[%li] = %li\n", nodelet_id, i, cum_sum);
+        offsets[i] = cum_sum;
     }
 
     // Helper function to compute list of offsets from array of bucket sizes
@@ -58,7 +61,7 @@ private:
     {
         // Make another array with the same length
         // TODO should be replicated
-        striped_array<long> offsets(sizes.size() + 1);
+        striped_array<long> offsets(sizes.size() + NODELETS());
         // TODO need prefix scan here
         for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id) {
             cilk_spawn compute_local_offsets(&offsets[nodelet_id], nodelet_id, offsets, sizes);
@@ -78,8 +81,8 @@ private:
         // Now end_offsets[i] = offsets[i + 1];
         // Doing it this way allows remote writes
         offsets.parallel_apply([&](long i) {
-            if (i == 0) return;
-            end_offsets[i - 1] = offsets[i];
+            if (i < NODELETS()) return;
+            end_offsets[i - NODELETS()] = offsets[i];
         });
         return end_offsets;
     }

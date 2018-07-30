@@ -36,13 +36,12 @@ public:
      */
     explicit striped_array(long n) : n(n)
     {
-        printf("striped_array: ctor\n");
         data = static_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
     }
 
     // Initializer-list constructor
-    striped_array(std::initializer_list<T> list) : striped_array(list.size()) {
-        printf("striped_array: ctor(list)\n");
+    striped_array(std::initializer_list<T> list) : striped_array(list.size())
+    {
         for (size_t i = 0; i < list.size(); ++i) {
             data[i] = *(list.begin() + i);
         }
@@ -64,7 +63,6 @@ public:
     // Destructor
     ~striped_array()
     {
-        printf("striped_array: dtor\n");
         if (data) { mw_free(data); }
     }
 
@@ -79,7 +77,6 @@ public:
     // Copy constructor
     striped_array(const striped_array & other) : striped_array(other.n)
     {
-        printf("striped_array: copy ctor\n");
         // Copy elements over in parallel
         other.parallel_apply([&](long i) {
             data[i] = other[i];
@@ -89,7 +86,6 @@ public:
     // Assignment operator (using copy-and-swap idiom)
     striped_array& operator= (striped_array other)
     {
-        printf("striped_array: assign\n");
         swap(*this, other);
         return *this;
     }
@@ -97,13 +93,12 @@ public:
     // Move constructor (using copy-and-swap idiom)
     striped_array(striped_array&& other) noexcept : striped_array()
     {
-        printf("striped_array: move\n");
         swap(*this, other);
     }
 
     // Shallow copy constructor (used for repl<T>)
     striped_array(const striped_array& other, bool)
-    : n(other.n), data(other.data) { printf("striped_array: shallow\n"); }
+    : n(other.n), data(other.data) {}
 
     T&
     operator[] (long i)
