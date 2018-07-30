@@ -28,14 +28,11 @@ class ragged_array
 private:
     // Size of each array such that len(ptrs[i]) == sizes[i]
     striped_array<T> items;
-    striped_array<long> offsets_begin;
-    striped_array<long> offsets_end;
+    striped_array<long> offsets;
 
-
-    ragged_array(long num_items, striped_array<long>&& offsets_begin, striped_array<long>&& offsets_end)
+    ragged_array(long num_items, striped_array<long>&& offsets)
     : items(num_items)
-    , offsets_begin(std::move(offsets_begin))
-    , offsets_end(std::move(offsets_end))
+    , offsets(std::move(offsets))
     {
     }
 
@@ -47,11 +44,9 @@ private:
         long cum_sum = nodelet_id;
         long i;
         for (i = nodelet_id; i < sizes.size(); i += NODELETS()) {
-            printf("n[%li]: sizes[%li] = %li\n", nodelet_id, i, sizes[i]);
             offsets[i] = cum_sum;
             cum_sum += sizes[i] * NODELETS();
         }
-        printf("n[%li]: offsets[%li] = %li\n", nodelet_id, i, cum_sum);
         offsets[i] = cum_sum;
     }
 
@@ -70,30 +65,13 @@ private:
         return offsets;
     }
 
-    // Helper function to compute end_offsets from list of offsets
-    static striped_array<long>
-    compute_end_offsets(striped_array<long> & offsets)
-    {
-        // Make another array with the same length
-        // TODO should be replicated
-        striped_array<long> end_offsets(offsets.size());
-        // Shift all entries to the left
-        // Now end_offsets[i] = offsets[i + 1];
-        // Doing it this way allows remote writes
-        offsets.parallel_apply([&](long i) {
-            if (i < NODELETS()) return;
-            end_offsets[i - NODELETS()] = offsets[i];
-        });
-        return end_offsets;
-    }
-
     static long
-    longest_chunk(const striped_array<long>& offsets_end)
+    longest_chunk(const striped_array<long>& offsets)
     {
         // The last offset for each chunk points to one past the end of the local chunk
         return (*std::max_element(
-            offsets_end.cend() - NODELETS(),
-            offsets_end.cend()
+            offsets.cend() - NODELETS(),
+            offsets.cend()
         ));
     }
 
@@ -105,9 +83,8 @@ public:
     from_sizes(const striped_array<long> & sizes)
     {
         auto offsets = compute_offsets(sizes);
-        auto end_offsets = compute_end_offsets(offsets);
-        long num_items = longest_chunk(offsets) * NODELETS();
-        return ragged_array(num_items, std::move(offsets), std::move(end_offsets));
+        long num_items = longest_chunk(offsets) - (NODELETS() - 1);
+        return ragged_array(num_items, std::move(offsets));
     }
 
     class subarray {
@@ -117,7 +94,19 @@ public:
     public:
         subarray(T * first, T * last) : first(first), last(last) {}
 
-        T& operator[] (long i) { return *(first + i * NODELETS()); }
+        T& operator[] (long i)
+        {
+            T* ptr = first + i * NODELETS();
+            assert(ptr < last);
+            return *ptr;
+        }
+
+        const T& operator[] (long i) const
+        {
+            const T* ptr = first + i * NODELETS();
+            assert(ptr < last);
+            return *ptr;
+        }
 
         class iterator {
         public:
@@ -146,9 +135,9 @@ public:
     subarray
     operator[] (long i)
     {
-        long slot = i % NODELETS();
-        T* first = &items[offsets_begin[i] * NODELETS() + slot];
-        T* last = &items[offsets_end[i] * NODELETS() + slot];
+        assert(i < offsets.size() - 1);
+        T* first = &items[offsets[i]];
+        T* last = &items[offsets[i + NODELETS()]];
         return subarray(first, last);
     }
     // TODO const index operator
@@ -164,7 +153,6 @@ public:
         iterator(ragged_array& array, long pos) : array(array), pos(pos) {}
         self_type operator++() { ++pos; return *this; }
         reference operator*() { return array[pos]; }
-        pointer operator->() { return pos; }
         bool operator==(const self_type& rhs) { return pos == rhs.pos; }
         bool operator!=(const self_type& rhs) { return pos != rhs.pos; }
     private:
@@ -173,14 +161,14 @@ public:
     };
 
     iterator begin() { return iterator(*this, 0); }
-    iterator end() { return iterator(*this, offsets_begin.size()-1); }
+    iterator end() { return iterator(*this, offsets.size()-NODELETS()); }
 
     // Debug, print out internal structures to stdout
     void dump() {
         printf("%li items\n", items.size());
         printf("Offsets: \n");
-        for (long i = 0; i < offsets_begin.size(); ++i) {
-            printf("%li: %li-%li\n", i, offsets_begin[i], offsets_end[i]);
+        for (long i = 0; i < offsets.size(); ++i) {
+            printf("%li: %li-%li\n", i, offsets[i], offsets[i + NODELETS()]);
         }
     }
 };
