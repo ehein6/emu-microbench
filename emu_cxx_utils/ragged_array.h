@@ -135,7 +135,7 @@ public:
     subarray
     operator[] (long i)
     {
-        assert(i < offsets.size() - 1);
+        assert(i < offsets.size() - NODELETS());
         T* first = &items[offsets[i]];
         T* last = &items[offsets[i + NODELETS()]];
         return subarray(first, last);
@@ -167,7 +167,7 @@ public:
     void dump() {
         printf("%li items\n", items.size());
         printf("Offsets: \n");
-        for (long i = 0; i < offsets.size(); ++i) {
+        for (long i = 0; i < offsets.size() - NODELETS(); ++i) {
             printf("%li: %li-%li\n", i, offsets[i], offsets[i + NODELETS()]);
         }
     }
