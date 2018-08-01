@@ -61,21 +61,14 @@ protected:
         return offsets;
     }
 
-    static noinline long
+    static long
     longest_chunk(const striped_array<long>& offsets)
     {
         // The last offset for each chunk points to one past the end of the local chunk
-//        long max = *std::max_element(
-//            offsets.cend() - NODELETS(),
-//            offsets.cend()
-//        );
-        long max = 0;
-        for (long i = 0; i < NODELETS(); ++i)
-        {
-            long val = *(offsets.cend() - i);
-            if (val > max) { max = val; }
-        }
-//        printf("val = %li\n", val); fflush(stdout);
+        long max = *std::max_element(
+            offsets.cend() - NODELETS(),
+            offsets.cend()
+        );
         return max;
     }
 
@@ -86,11 +79,18 @@ public:
 
     typedef T value_type;
 
+//    // Construct a ragged array from a list of bucket sizes
+//    ragged_array(const striped_array<long> & sizes)
+//    : offsets(compute_offsets(sizes))
+//    , items(longest_chunk(offsets) - (NODELETS() - 1))
+//    {
+//    }
+
     // Construct a ragged array from a list of bucket sizes
     ragged_array(const striped_array<long> & sizes)
-    : offsets(compute_offsets(sizes))
-    , items(longest_chunk(offsets) - (NODELETS() - 1))
     {
+        offsets = compute_offsets(sizes);
+        items = striped_array<long>(longest_chunk(offsets) - (NODELETS() - 1));
     }
 
     class subarray {
@@ -171,6 +171,13 @@ public:
 
     // Debug, print out internal structures to stdout
     void dump() {
+
+//        for (long i = 0; i < NODELETS(); ++i) {
+//            ragged_array * self = static_cast<ragged_array*>(mw_get_nth(this, i));
+//            printf("items[%li] = %p (%li) \n", i, self->items.data(), self->items.size());
+//            printf("offsets[%li] = %p (%li)\n", i, self->offsets.data(), self->offsets.size());
+//        }
+
         printf("%li items\n", items.size());
         printf("Offsets: \n");
         for (long i = 0; i < offsets.size() - NODELETS(); ++i) {

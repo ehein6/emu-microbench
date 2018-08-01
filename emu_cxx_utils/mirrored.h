@@ -79,7 +79,7 @@ public:
  * All other operations (function calls, attribute accesses) will access the local copy of T.
  */
 template <typename T>
-class repl_shallow : public T, public repl_new
+class repl_copy : public T, public repl_new
 {
 public:
 /**
@@ -129,7 +129,7 @@ public:
 
     // Wrapper constructor to copy T to each nodelet after running the requested constructor
     template<typename... Args>
-    explicit repl_shallow (Args&&... args)
+    explicit repl_copy (Args&&... args)
     // Call T's constructor with forwarded args
     : T(std::forward<Args>(args)...)
     {
@@ -145,7 +145,7 @@ public:
     }
 
     // Initializes all copies to the same value
-    repl_shallow&
+    repl_copy&
     operator=(const T& rhs)
     {
         for (long i = 0; i < NODELETS(); ++i) {
@@ -263,65 +263,5 @@ public:
     }
 };
 
-
-/**
- * repl_ctor<T> : Wrapper template to add replicated semantics to a class using distributed copy construction.
- *
- * Assignment:
- *     Will call the assignment operator on the local copy.
- *
- * Construction:
- *     Calls constructor on local nodelet, then copy-constructs to each remote nodelet.
- *
- * Destruction:
- *     The destructor will be called on each copy individually.
- *
- * All other operations (function calls, attribute accesses) will access the local copy of T.
- */
-template<typename T>
-class repl_copy : public T, public repl_new
-{
-public:
-    /**
-     * Returns a reference to the copy of T on the Nth nodelet
-     * @param n nodelet ID
-     * @return Returns a reference to the copy of T on the Nth nodelet
-     */
-    T& get_nth(long n)
-    {
-        assert(n < NODELETS());
-        return *static_cast<T*>(mw_get_nth(this, n));
-    }
-
-    // Constructor template - allows repl_ctor<T> to be constructed just like a T
-    template<typename... Args>
-    explicit repl_copy(Args&&... args)
-    // Call T's constructor with forwarded args
-    : T(std::forward<Args>(args)...)
-    {
-        // Pointer to the object on this nodelet, which has already been constructed
-        T * local = &get_nth(NODE_ID());
-        // For each nodelet...
-        for (long n = 0; n < NODELETS(); ++n) {
-            // Use copy constructor  to construct each remote object
-            T * remote = &get_nth(n);
-            if (local == remote) continue;
-            new (remote) T(*local);
-        }
-    }
-
-    ~repl_copy()
-    {
-        // Pointer to the object on this nodelet, which has already been destructed
-        T * local = &get_nth(NODE_ID());
-        // For each nodelet...
-        for (long n = 0; n < NODELETS(); ++n) {
-            // Explicitly call destructor to tear down each remote object
-            T * remote = &get_nth(n);
-            if (local == remote) continue;
-            remote->~T();
-        }
-    }
-};
 
 } // end namespace emu

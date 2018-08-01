@@ -17,13 +17,21 @@ extern "C" {
 
 using namespace emu;
 
+//replicated repl_copy<striped_array<long>> sizes;
 
 int main(int argc, char** argv)
 {
-    striped_array<long> sizes {4, 4, 4, 4, 5, 6, 7, 8};
+    auto sizes = striped_array<long>{4, 4, 4, 4, 5, 6, 7, 8};
 
     printf("Alloc ragged array...\n"); fflush(stdout);
-    auto array = make_repl<ragged_array<long>>(sizes);
+    auto array = make_repl_copy<ragged_array<long>>(sizes);
+
+//    std::unique_ptr<repl_copy<ragged_array<long>>> array =
+//        std::unique_ptr<repl_copy<ragged_array<long>>>(new repl_copy<ragged_array<long>>(sizes));
+
+//    repl_copy<ragged_array<long>> * array =
+//        new repl_copy<ragged_array<long>>(sizes);
+
     auto& csr = *array;
     csr.dump();
     printf("Fill ragged array...\n"); fflush(stdout);
@@ -38,7 +46,7 @@ int main(int argc, char** argv)
     LOG("Dump ragged array...\n"); fflush(stdout);
     for (long row = 0; row < sizes.size(); ++row) {
         for (long col = 0; col < sizes[row]; ++col) {
-            LOG("csr[%li][%li] = %li\n", row, col, csr[row][col]);
+//            LOG("csr[%li][%li] = %li\n", row, col, csr[row][col]);
         }
     }
 

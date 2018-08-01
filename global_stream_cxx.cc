@@ -33,9 +33,9 @@ struct benchmark {
 template<template <typename> class array_type>
 struct global_stream : public benchmark, public repl_new
 {
-    repl_shallow<array_type<long>> a;
-    repl_shallow<array_type<long>> b;
-    repl_shallow<array_type<long>> c;
+    repl_copy<array_type<long>> a;
+    repl_copy<array_type<long>> b;
+    repl_copy<array_type<long>> c;
     repl<long> n;
     repl<long> num_threads;
 

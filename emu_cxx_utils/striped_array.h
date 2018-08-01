@@ -25,45 +25,50 @@ class striped_array
     static_assert(sizeof(T) == 8, "emu_striped_array can only hold 64-bit data types");
 private:
     long n;
-    T * data;
-    // Default constructor
-    striped_array() : n(0), data(nullptr) {};
+    T * ptr;
+
 public:
     typedef T value_type;
+
+    // Default constructor
+    striped_array() : n(0), ptr(nullptr) {};
+
     /**
      * Constructs a emu_striped_array<T>
      * @param n Number of elements
      */
     explicit striped_array(long n) : n(n)
     {
-        data = static_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
+        ptr = static_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
     }
 
     // Initializer-list constructor
     striped_array(std::initializer_list<T> list) : striped_array(list.size())
     {
         for (size_t i = 0; i < list.size(); ++i) {
-            data[i] = *(list.begin() + i);
+            ptr[i] = *(list.begin() + i);
         }
     }
 
     typedef T* iterator;
-    iterator begin ()               { return data; }
-    iterator end ()                 { return data + n; }
+    iterator begin ()               { return ptr; }
+    iterator end ()                 { return ptr + n; }
     typedef const T* const_iterator;
-    const_iterator cbegin () const  { return data; }
-    const_iterator cend () const    { return data + n; }
+    const_iterator cbegin () const  { return ptr; }
+    const_iterator cend () const    { return ptr + n; }
 
+    T* data() { return ptr; }
+    const T* data() const { return ptr; }
 
-    T& front()              { return data[0]; }
-    const T& front() const  { return data[0]; }
-    T& back()               { return data[n-1]; }
-    const T& back() const   { return data[n-1]; }
+    T& front()              { return ptr[0]; }
+    const T& front() const  { return ptr[0]; }
+    T& back()               { return ptr[n-1]; }
+    const T& back() const   { return ptr[n-1]; }
 
     // Destructor
     ~striped_array()
     {
-        if (data) { mw_free(data); }
+        if (ptr) { mw_free(ptr); }
     }
 
     friend void
@@ -71,7 +76,7 @@ public:
     {
         using std::swap;
         swap(first.n, second.n);
-        swap(first.data, second.data);
+        swap(first.ptr, second.ptr);
     }
 
     // Copy constructor
@@ -79,7 +84,7 @@ public:
     {
         // Copy elements over in parallel
         other.parallel_apply([&](long i) {
-            data[i] = other[i];
+            ptr[i] = other[i];
         });
     }
 
@@ -98,18 +103,18 @@ public:
 
     // Shallow copy constructor (used for repl<T>)
     striped_array(const striped_array& other, bool)
-    : n(other.n), data(other.data) {}
+    : n(other.n), ptr(other.ptr) {}
 
     T&
     operator[] (long i)
     {
-        return data[i];
+        return ptr[i];
     }
 
     const T&
     operator[] (long i) const
     {
-        return data[i];
+        return ptr[i];
     }
 
     long size() const { return n; }
@@ -154,7 +159,7 @@ public:
         if (grain == 0) { grain = 256; }
         // Spawn a thread at each nodelet
         for (long nodelet_id = 0; nodelet_id < NODELETS() && nodelet_id < n; ++nodelet_id) {
-            cilk_spawn parallel_apply_worker_level1(&data[nodelet_id], n, grain, worker);
+            cilk_spawn parallel_apply_worker_level1(&ptr[nodelet_id], n, grain, worker);
         }
     }
 };
