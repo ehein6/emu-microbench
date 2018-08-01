@@ -20,12 +20,13 @@ using namespace emu;
 
 int main(int argc, char** argv)
 {
-    striped_array<long> sizes {4, 4, 4, 4};
+    striped_array<long> sizes {4, 4, 4, 4, 5, 6, 7, 8};
 
-    printf("Alloc ragged array...\n");
-    auto csr = ragged_array<long>::from_sizes(sizes);
+    printf("Alloc ragged array...\n"); fflush(stdout);
+    auto array = make_repl<ragged_array<long>>(sizes);
+    auto& csr = *array;
     csr.dump();
-    printf("Fill ragged array...\n");
+    printf("Fill ragged array...\n"); fflush(stdout);
     long val = 0;
     for (long row = 0; row < sizes.size(); ++row) {
         for (long col = 0; col < sizes[row]; ++col) {
@@ -34,7 +35,7 @@ int main(int argc, char** argv)
         }
     }
 
-    LOG("Dump ragged array...\n");
+    LOG("Dump ragged array...\n"); fflush(stdout);
     for (long row = 0; row < sizes.size(); ++row) {
         for (long col = 0; col < sizes[row]; ++col) {
             LOG("csr[%li][%li] = %li\n", row, col, csr[row][col]);

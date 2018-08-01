@@ -5,7 +5,7 @@
 
 
 // Logging macro. Flush right away since Emu hardware usually doesn't
-#define LOG(...) fprintf(stderr, __VA_ARGS__); fflush(stderr);
+#define LOG(...) fprintf(stdout, __VA_ARGS__); fflush(stdout);
 
 // Assert with custom error message
 static inline void

@@ -51,37 +51,6 @@ public:
     }
 };
 
-/**
- * Default shallow copy operation to be used by repl<T>
- * Only defined for trivially copyable (i.e. copy constructor == memcpy) types.
- * In this case there is no difference between a deep copy and a shallow copy.
- * @tparam T Type with trivial copy semantics
- * @param dst Pointer to sizeof(T) bytes of uninitialized memory
- * @param src Pointer to constructed T
- */
-template<typename T>
-void shallow_copy(
-    typename std::enable_if<std::is_trivially_copyable<T>::value, T>::type * dst,
-    const T * src)
-{
-    memcpy(dst, src, sizeof(T));
-}
-
-/**
- * If T has a "shallow copy constructor" (copy constructor with additional dummy bool argument)
- * repl<T> will use this version instead. Otherwise SFINAE will make this one go away.
- * @tparam T Type with a "shallow copy constructor" (copy constructor with additional dummy bool argument)
- * @param dst Pointer to sizeof(T) bytes of uninitialized memory
- * @param src Pointer to constructed T
- */
-template<typename T>
-void shallow_copy(
-    T * dst,
-    const T * src)
-{
-    const bool shallow = true;
-    new (dst) T(*src, shallow);
-}
 
 /**
  * repl<T> : Wrapper template to add replicated semantics to a class using shallow copies.
@@ -109,15 +78,44 @@ void shallow_copy(
  *
  * All other operations (function calls, attribute accesses) will access the local copy of T.
  */
-template <
-    // Type being replicated
-    typename T,
-    // Size of type, for partial specialization
-    size_t = sizeof(T)
->
-class repl : public T, public repl_new
+template <typename T>
+class repl_shallow : public T, public repl_new
 {
 public:
+/**
+ * Default shallow copy operation to be used by repl<T>
+ * Only defined for trivially copyable (i.e. copy constructor == memcpy) types.
+ * In this case there is no difference between a deep copy and a shallow copy.
+ * @tparam T Type with trivial copy semantics
+ * @param dst Pointer to sizeof(T) bytes of uninitialized memory
+ * @param src Pointer to constructed T
+ */
+    template<typename U=T>
+    void
+    shallow_copy(
+        typename std::enable_if<std::is_trivially_copyable<U>::value, U>::type * dst,
+        const U * src)
+    {
+        memcpy(dst, src, sizeof(U));
+    }
+
+    /**
+     * If T has a "shallow copy constructor" (copy constructor with additional dummy bool argument)
+     * repl<T> will use this version instead. Otherwise SFINAE will make this one go away.
+     * @tparam T Type with a "shallow copy constructor" (copy constructor with additional dummy bool argument)
+     * @param dst Pointer to sizeof(T) bytes of uninitialized memory
+     * @param src Pointer to constructed T
+     */
+    template<typename U=T>
+    void
+    shallow_copy(
+        U * dst,
+        const U * src)
+    {
+        const bool shallow = true;
+        new (dst) U(*src, shallow);
+    }
+
     /**
      * Returns a reference to the copy of T on the Nth nodelet
      * @param n nodelet ID
@@ -131,7 +129,7 @@ public:
 
     // Wrapper constructor to copy T to each nodelet after running the requested constructor
     template<typename... Args>
-    explicit repl (Args&&... args)
+    explicit repl_shallow (Args&&... args)
     // Call T's constructor with forwarded args
     : T(std::forward<Args>(args)...)
     {
@@ -147,7 +145,7 @@ public:
     }
 
     // Initializes all copies to the same value
-    repl&
+    repl_shallow&
     operator=(const T& rhs)
     {
         for (long i = 0; i < NODELETS(); ++i) {
@@ -164,14 +162,8 @@ public:
  * Need a slightly different implementation here since we can't inherit from primitives.
  */
 template<typename T>
-class repl<T, 8> : public repl_new
+class repl : public repl_new
 {
-    // I'm assuming here that all pointers are 8 bytes, so I can cast them to/from long
-    // without losing anything. This is true on Emu and most 64-bit machines, but not in general.
-    static_assert(sizeof(long) == 8,
-        "This code wasn't designed for systems with a 32-bit long type.");
-    static_assert(std::is_trivially_copyable<T>::value,
-        "repl<T> only works with trivially copyable classes, maybe you want repl_ctor<T>?");
 private:
     T val;
 public:
@@ -183,11 +175,11 @@ public:
     }
 
     // Default constructor
-    repl<T,8>() = default;
+    repl<T>() = default;
 
     // Wrapper constructor to copy T to each nodelet after running the requested constructor
     // Call T's constructor with forwarded args
-    repl<T,8>(T x)
+    repl<T>(T x)
     {
         mw_replicated_init(reinterpret_cast<long*>(&val), reinterpret_cast<long>(x));
     }

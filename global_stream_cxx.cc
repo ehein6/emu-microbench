@@ -11,6 +11,7 @@
 #include "spawn_templates.h"
 #include "chunked_array.h"
 #include "mirrored.h"
+#include "make_unique.h"
 
 #ifdef __le64__
 extern "C" {
@@ -26,15 +27,15 @@ struct benchmark {
     virtual void initialize() = 0;
     virtual void run(const char * name, long num_trials) = 0;
     virtual void validate() = 0;
-    virtual ~benchmark() {};
+    virtual ~benchmark() = default;
 };
 
 template<template <typename> class array_type>
 struct global_stream : public benchmark, public repl_new
 {
-    repl<array_type<long>> a;
-    repl<array_type<long>> b;
-    repl<array_type<long>> c;
+    repl_shallow<array_type<long>> a;
+    repl_shallow<array_type<long>> b;
+    repl_shallow<array_type<long>> c;
     repl<long> n;
     repl<long> num_threads;
 
@@ -160,13 +161,13 @@ struct global_stream : public benchmark, public repl_new
     
 };
 
-benchmark *
+std::unique_ptr<benchmark>
 make_benchmark(const char * layout, long n, long num_threads)
 {
     if (!strcmp(layout, "striped")) {
-        return new global_stream<striped_array>(n, num_threads);
+        return make_unique<global_stream<striped_array>>(n, num_threads);
     } else if (!strcmp(layout, "chunked")) {
-        return new global_stream<chunked_array>(n, num_threads);
+        return make_unique<global_stream<chunked_array>>(n, num_threads);
     } else {
         printf("Layout %s not implemented!", layout);
         exit(1);
@@ -211,7 +212,7 @@ int main(int argc, char** argv)
     long mbytes = n * sizeof(long) / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
     LOG("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n", 3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
-    auto * benchmark = make_benchmark(args.layout, n, args.num_threads);
+    auto benchmark = make_benchmark(args.layout, n, args.num_threads);
 #ifndef NO_VALIDATE
     benchmark->initialize();
 #endif
@@ -223,6 +224,5 @@ int main(int argc, char** argv)
     LOG("OK\n");
 #endif
 
-    delete benchmark;
     return 0;
 }

@@ -10,8 +10,10 @@ extern "C" {
 #include <cinttypes>
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include "striped_array.h"
 #include "mirrored.h"
+#include "make_unique.h"
 
 namespace emu {
 
@@ -25,16 +27,10 @@ template<typename T>
 class ragged_array
 {
     static_assert(sizeof(T) == 8, "ragged_array can only hold 64-bit data types");
-private:
+protected:
     // Size of each array such that len(ptrs[i]) == sizes[i]
-    striped_array<T> items;
     striped_array<long> offsets;
-
-    ragged_array(long num_items, striped_array<long>&& offsets)
-    : items(num_items)
-    , offsets(std::move(offsets))
-    {
-    }
+    striped_array<T> items;
 
     static void
     compute_local_offsets(void * hint, long nodelet_id,
@@ -65,26 +61,36 @@ private:
         return offsets;
     }
 
-    static long
+    static noinline long
     longest_chunk(const striped_array<long>& offsets)
     {
         // The last offset for each chunk points to one past the end of the local chunk
-        return (*std::max_element(
-            offsets.cend() - NODELETS(),
-            offsets.cend()
-        ));
+//        long max = *std::max_element(
+//            offsets.cend() - NODELETS(),
+//            offsets.cend()
+//        );
+        long max = 0;
+        for (long i = 0; i < NODELETS(); ++i)
+        {
+            long val = *(offsets.cend() - i);
+            if (val > max) { max = val; }
+        }
+//        printf("val = %li\n", val); fflush(stdout);
+        return max;
     }
 
 public:
+    // Shallow copy constructor
+    ragged_array(const ragged_array& other, bool)
+    : offsets(other.offsets, true), items(other.items, true) {}
+
     typedef T value_type;
 
     // Construct a ragged array from a list of bucket sizes
-    static ragged_array
-    from_sizes(const striped_array<long> & sizes)
+    ragged_array(const striped_array<long> & sizes)
+    : offsets(compute_offsets(sizes))
+    , items(longest_chunk(offsets) - (NODELETS() - 1))
     {
-        auto offsets = compute_offsets(sizes);
-        long num_items = longest_chunk(offsets) - (NODELETS() - 1);
-        return ragged_array(num_items, std::move(offsets));
     }
 
     class subarray {
