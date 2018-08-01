@@ -11,29 +11,36 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 #include "emu_grain_helpers.h"
 #include "emu_for_local.h"
 
-// Bitonic sort functions
+/* Bitonic sort functions */
 static void p_bitonic_sort(void *base, size_t low, size_t num, int (*compar)(const void *, const void *), bool asec, size_t size, size_t grain);
 static void p_bitonic_merge(void *base, size_t low, size_t num, int (*compar)(const void *, const void *), bool asec, size_t size, size_t grain);
 
-// Merge sort functions
+/* Merge sort functions */
 static void p_merge_sort(void *base, void *temp, size_t nelem, size_t size, int (*compar)(const void *, const void *), size_t l, size_t r, size_t grain);
 static void p_merge(void *base, void *temp, size_t size, int (*compar)(const void *, const void *), size_t l, size_t r, size_t m);
 
-// Quick sort functions
-static void p_quick_sort(void *base, size_t nelem, size_t size, int (*compar) (const void *, const void *), long left, long right, size_t grain);
-static void p_partition(void);
+/* Quick sort functions */
+static void p_quick_sort(void *l, void *r, size_t size, int (*compar)(const void *, const void *), size_t grain);
+//static void p_partition(void);
 
-// Common utilities
+/* Parallel merge -- merge sort */
+static void pss_base(void *xs, void *xe, void *z, size_t size, int (*compar)(const void *, const void *));
+static void *upper_bound(void *xs, void *xe, size_t size, int (*compar)(const void *, const void *), void *x);
+static void *lower_bound(void *xs, void *xe, size_t size, int (*compar)(const void *, const void *), void *x);
+static void pss_serial_merge(void *xs, void *xe, void *ys, void *ye, void *z, size_t size, int (*compar)(const void *, const void *));
+static void pss_merge(void *xs, void *xe, void *ys, void *ye, void *z, size_t size, int (*compar)(const void *, const void *));
+static void pss_helper(void *xs, void *xe, void *z, size_t size, bool inplace, int (*compar)(const void *, const void *), size_t grain);
+
+/* Common utilities */
 static void insertion_sort(void *base, size_t nelem, size_t size, int (*compar)(const void *, const void *));
-static void swap(void *a, void *b, size_t size);
+static inline void swap(void *a, void *b, size_t size);
+static inline void emu_memcpy(void *dest, const void *src, size_t len);
 
-
-// Helper to print array
+/* Helper to print array */
 static void
 print_array(long *arr, size_t nelem)
 {
@@ -44,47 +51,33 @@ print_array(long *arr, size_t nelem)
     printf("\n");
 }
 
-// Constants for parallel merge sort
+/* Constants for parallel merge sort */
 
 #define P_MERGE_SIZE_HIGH 128
 #define P_MERGE_FACTOR_HIGH 6
 #define P_MERGE_FACTOR_LOW 3
 #define P_MERGE_INSERTION_COND 32
 
-// Constants for the parallel bitonic-qsort hybrid
+/* Constants for the parallel bitonic-qsort hybrid */
 #define MIN_BITONIC_LENGTH 32
 #define BITONIC_GRAIN(n) n >> 5
 
-// Constants for the parallel quick sort
+/* Constants for the parallel quick sort */
 #define P_QUICK_FACTOR 3
 #define P_QUICK_SORT_GRAIN(n) n >> P_QUICK_FACTOR
 
-
-static void
-my_memcpy(void * to, void * from, size_t n)
-{
-    assert((n & (0x7)) == 0);
-    n >>= 3;
-    long * src = from;
-    long * dst = to;
-    for (size_t i = 0; i < n; ++i) {
-        dst[i] = src[i];
-    }
-}
-
-// Utilities
 #define SWAP(a, b, size)                    \
     do                                      \
         {                                   \
             size_t __size = (size);         \
-            long *__a = (a), *__b = (b);    \
+            char *__a = (a), *__b = (b);    \
             do                              \
                 {                           \
                     char __tmp = *__a;      \
                     *__a++ = *__b;          \
                     *__b++ = __tmp;         \
                 } while (--__size > 0);     \
-        } while (0)                         \
+        } while (0)
 
 /*
  * emu_sort_local -- Call the best sort based on input parameters
@@ -93,7 +86,6 @@ void
 emu_sort_local(void *base, size_t num, size_t size, int (*compar)(const void *, const void *))
 {
     if (num >= MIN_BITONIC_LENGTH) {
-        // p_bitonic_sort(base, 0, num, compar, true, size, 4);
 
         size_t grain;
         if (num > P_MERGE_SIZE_HIGH) {
@@ -104,8 +96,6 @@ emu_sort_local(void *base, size_t num, size_t size, int (*compar)(const void *, 
         char *temp = malloc(size * num);
         p_merge_sort(base, (void *) temp, num, size, compar, 0, num - 1, grain);
         free(temp);
-
-        //insertion_sort(base, num, size, compar);
 
     } else {
         qsort(base, num, size, compar);
@@ -126,14 +116,19 @@ emu_sort_local_bitonic(void *base, size_t num, size_t size, int (*compar)(const 
 }
 
 /*
- * Specific call to the parallel merge function
+ * Specific call to the parallel merge sort function
  */
 void
 emu_sort_local_merge(void *base, size_t num, size_t size, int (*compar)(const void *, const void *))
 {
-    // Call only if more than one element
     if (num > 1) {
+        /* Allocate temporary array -- on failure call the inplace quick sort */
         char *temp = malloc(size * num);
+        if (!temp) {
+            emu_sort_local_quick(base, num, size, compar);
+            return;
+        }
+
         size_t grain;
         if (num > P_MERGE_SIZE_HIGH) {
             grain = num >> P_MERGE_FACTOR_HIGH;
@@ -151,40 +146,30 @@ emu_sort_local_merge(void *base, size_t num, size_t size, int (*compar)(const vo
 void
 emu_sort_local_quick(void *base, size_t num, size_t size, int (*compar)(const void *, const void *))
 {
-    p_quick_sort(base, num, size, compar, 0, num - 1, (size_t) P_QUICK_SORT_GRAIN(num));
+    p_quick_sort(base, base + size * (num - 1), size, compar, (size_t) P_QUICK_SORT_GRAIN(num));
 }
 
-/* Internal functions -- All Static */
-
-/**
- * Insertion sort implementation for smaller array sizes.
- *
- * @param base -- The array
- * @param nelem -- The array size
- * @param size -- Size of each element of the array
- * @param compar -- The comparator
- *
+/*
+ * Function to peform a parallel merge sort with parallel merge on an input array, has the same signature
+ * as generic stdlib qsort
  */
-static void
-insertion_sort(void *base, size_t nelem, size_t size, int (*compar)(const void *, const void *))
+void
+emu_sort_local_pss(void *base, size_t nelem, size_t size, int (*compar)(const void *, const void *))
 {
-    char *key = malloc(size);
-    for (size_t i = 1; i < nelem; i++) {
-        // create the key
-
-        my_memcpy(key, base + i * size, size);
-
-        long j = i - 1;
-        while (j >= 0 && compar(base + j * size, (void *) key) > 0) {
-            my_memcpy(base + (j + 1) * size, base + j * size, size);
-            j = j -1;
-        }
-        // put the base in its place
-        my_memcpy(base + (j + 1) * size, key, size);
+    /* Allocate buffer -- same size as the array that needs to be sorted */
+    void *z = malloc(size * nelem);
+    if (!z) {
+        /* If could not allocate temporary buffer call the quick sort function */
+        qsort(base, nelem, size, compar);
+        return;
     }
-    free(key);
-    // print_array(base, nelem);
+    pss_helper(base, base + size * nelem, z, size, true, compar, nelem << 3);
 }
+
+
+/******* Internal functions -- All Static *******/
+
+/****** Parallel Merge Sort Functions (Old version) ******/
 
 /**
  * Merge sort implementation using the cilk threading library
@@ -207,15 +192,15 @@ p_merge_sort(void *base, void *temp, size_t nelem, size_t size, int (*compar)(co
             size_t m = (l + r) / 2;
 
             cilk_spawn p_merge_sort(base, temp, (m - l + 1), size, compar, l, m, grain);
-            cilk_spawn p_merge_sort(base, temp, (r - m), size, compar, m + 1, r, grain);
+            p_merge_sort(base, temp, (r - m), size, compar, m + 1, r, grain);
 
             cilk_sync;
             p_merge(base, temp, size, compar, l, r, m);
         } else if (nelem > 1) {
             if (nelem <= P_MERGE_INSERTION_COND) {
-                // try insertion sort for arrays smaller than 32
+                /* try insertion sort for arrays smaller than 32 */
                 insertion_sort(base + l * size, nelem, size, compar);
-            } else { // For anything bigger than that, keep on recursing down
+            } else { /* For anything bigger than that, keep on recursing down */
                 size_t m = (l + r) / 2;
 
                 p_merge_sort(base, temp, (m - l + 1), size, compar, l, m, grain);
@@ -246,45 +231,47 @@ p_merge(void *base, void *temp, size_t size, int (*compar)(const void *, const v
     size_t n1 = m - l + 1;
     size_t n2 = r - m;
 
-    // copy into temp buffer
+    /* copy into temp buffer */
     for (size_t i = 0; i < n1; i++) {
-        my_memcpy(temp + (i + l) * size, base + (i + l) * size, size);
+        emu_memcpy(temp + (i + l) * size, base + (i + l) * size, size);
     }
 
     for (size_t i = 0; i < n2; i++) {
-        my_memcpy(temp + (i + (m + 1)) * size, base + (i + (m + 1)) * size, size);
+        emu_memcpy(temp + (i + (m + 1)) * size, base + (i + (m + 1)) * size, size);
     }
 
     size_t k = l;
     size_t i = l;
     size_t j = m + 1;
 
-    // merge step
+    /* merge step */
     while (i < (n1 + l) && j < (n2 + m + 1)) {
         if (compar(temp + i * size, temp + j * size) > 0) {
-            my_memcpy(base + k * size, temp + j * size, size);
+            emu_memcpy(base + k * size, temp + j * size, size);
             j++;
         } else {
-            my_memcpy(base + k * size, temp + i * size, size);
+            emu_memcpy(base + k * size, temp + i * size, size);
             i++;
         }
         k++;
     }
 
-    // copy over the remaining elements of the left half
+    /* copy over the remaining elements of the left half */
     while (i < (n1 + l)) {
-        my_memcpy(base + k * size, temp + i * size, size);
+        emu_memcpy(base + k * size, temp + i * size, size);
         i++;
         k++;
     }
 
-    // copy over the remaining elements of the right half
+    /* copy over the remaining elements of the right half */
     while (j < (n2 + m + 1)) {
-        my_memcpy(base + k * size, temp + j * size, size);
+        emu_memcpy(base + k * size, temp + j * size, size);
         j++;
         k++;
     }
 }
+
+/****** Parallel Bitonic Sort Functions ******/
 
 /*
  * Bitonic sort function
@@ -299,19 +286,18 @@ p_merge(void *base, void *temp, size_t size, int (*compar)(const void *, const v
 static void
 p_bitonic_sort(void *base, size_t low, size_t num, int (*compar)(const void *, const void *), bool asec, size_t size, size_t grain)
 {
-    // spawn new threads for anything larger than grain size
+    /* spawn new threads for anything larger than grain size */
     if (num > grain) {
         size_t m = num / 2;
-        cilk_spawn p_bitonic_sort(base, low, m, compar, asec, size, grain);
-        cilk_spawn p_bitonic_sort(base, low+m, num - m, compar, !asec, size, grain);
+        cilk_spawn p_bitonic_sort(base, low, m, compar, !asec, size, grain);
+        p_bitonic_sort(base, low+m, num - m, compar, asec, size, grain);
 
         cilk_sync;
-        p_bitonic_merge(base, low, num, compar, asec, size, grain); // merge the sorted portions
+        p_bitonic_merge(base, low, num, compar, asec, size, grain); /* merge the sorted portions */
     } else if (num > 1) {
 
         qsort(base + size * low, num, size, compar);
-        // Right now we are just reversing the sorted array -- hacky
-        // compare against a standalone quicksort implementation
+        /* Right now we are just reversing the sorted array -- hacky */
         if (!asec) {
             for (size_t i = 0, j = num - 1; i < j; i++, j--) {
                 char *left = ((char *) base) + (i + low) * size;
@@ -392,13 +378,11 @@ p_bitonic_merge(void *base, size_t low, size_t num, int (*compar)(const void *, 
             merge_worker, compar, base, (void *) asec, (void *) m, (void *) size);
 
         cilk_spawn p_bitonic_merge(base, low, m, compar, asec, size, grain);
-        cilk_spawn p_bitonic_merge(base, low + m, num - m, compar, asec, size, grain);
+        p_bitonic_merge(base, low + m, num - m, compar, asec, size, grain);
     } else if (num > 1) {
-        // sort the combined numbers in the direction of asec instead of calling
-        // the recursive implementation
+        /* sort the combined numbers in the direction of asec instead of calling the recursive implementation */
         qsort(base + low * size, num, size, compar);
-        // Right now we are just reversing the sorted array -- hacky
-        // compare against a standalone quicksort implementation
+        /* Right now we are just reversing the sorted array -- hacky */
         if (!asec) {
             for (size_t i = 0, j = num - 1; i < j; i++, j--) {
                 char *left = ((char *) base) + (i + low) * size;
@@ -409,77 +393,247 @@ p_bitonic_merge(void *base, size_t low, size_t num, int (*compar)(const void *, 
     }
 }
 
+/****** Parallel Quick Sort Functions ******/
+
 static void
-p_quick_sort(void *base, size_t nelem, size_t size, int (*compar) (const void *, const void *), long left, long right, size_t grain)
+p_quick_sort(void *l, void *r, size_t size, int (*compar)(const void *, const void *), size_t grain)
 {
-    long i = left, j = right;
+    size_t max_thresh = size * 4;
+    size_t nelem = ((r - l) / size);
 
     char pivot[size];
+    char *mid = l + (nelem >> 1) * size;
 
-    char *lo = base + i * size;
-    char *hi = base + j * size;
-    char *mid = lo + size * ((hi - lo) / size >> 1);
-
-    // pivot selection process choose median between the three limits
-    if (compar((void *) mid, (void *) lo) < 0) {
-        swap(lo, mid, size);
+    if (compar((void *) mid, l) < 0) {
+        swap(l, mid, size);
     }
 
-    if (compar((void *) hi, (void *) mid) < 0) {
-        swap(mid, hi, size);
-        if (compar((void *) mid, (void *) lo) < 0) {
-            swap(mid, lo, size);
+    if (compar(r, (void *) mid) < 0) {
+        swap(mid, r, size);
+        if (compar((void *) mid, l) < 0) {
+            swap(mid, l, size);
         }
     }
 
-    // pivot has to be a copy
-    my_memcpy(pivot, mid, size);
+    emu_memcpy(pivot, mid, size); /* Make a copy of the pivot */
 
-    //void *pivot = base + ((i + j)/2) * size; // Middle element is the pivot
-
-    while (i <= j) {
-        // while array[i] less than pivot
-        while (compar(base + i * size, pivot) < 0) {
-            i++;
+    char *lo = l + size;
+    char *hi = r - size;
+    while (lo <= hi) {
+        while (compar((void *) lo, (void *) pivot) < 0) {
+            lo += size;
         }
 
-        // while array[j] greater than pivot
-        while (compar(base + j * size, pivot) > 0) {
-            j--;
+        while (compar((void *) hi, (void *) pivot) > 0) {
+            hi -= size;
         }
 
-        // if i == j -- then don't need to swap
-        if (i <= j) {
-            // swap the elements that are being pointed to only if i != j
-            if (i < j)
-                swap(base + i * size, base + j * size, size);
-            i++;
-            j--;
+        if (lo <= hi) {
+            /* Swap if not the same location */
+            if (lo < hi) {
+                swap(lo, hi, size);
+            }
+            lo += size;
+            hi -= size;
         }
     }
 
-    if ((right - left) > grain) {
-        if (left < j) {
-            //printf("Creating Thread\n");
-            cilk_spawn p_quick_sort(base, j - left + 1, size, compar, left, j, grain);
+    if (nelem > grain) {
+        if (l < (void *) hi) {
+            cilk_spawn p_quick_sort(l, hi, size, compar, grain);
         }
-        if (i < right) {
-            //printf("Creating Thread\n");
-            cilk_spawn p_quick_sort(base, right - i + 1, size, compar, i, right, grain);
+
+        if ((void *) lo < r) {
+            cilk_spawn p_quick_sort(lo, r, size, compar, grain);
         }
+
         cilk_sync;
     } else {
-        if (left < j) {
-            p_quick_sort(base, j - left + 1, size, compar, left, j, grain);
+        if (l < (void *) hi) {
+            p_quick_sort(l, hi, size, compar, grain);
         }
 
-        if (i < right) {
-            p_quick_sort(base, right - i + 1, size, compar, i, right, grain);
+        if ((void *) lo < r) {
+            p_quick_sort(lo, r, size, compar, grain);
         }
     }
 }
 
 static void p_partition(void);
+
+/****** Parallel Merge Sort Functions ******/
+
+/* TODO: Based on size of z array, serial sort should be either quick sort or it should be insertion sort */
+
+/* sorts the array [xs, xe) and puts the result in z */
+static void
+pss_base(void *xs, void *xe, void *z, size_t size, int (*compar)(const void *, const void *))
+{
+    /* For now, call qsort and put it in z */
+    size_t nelem = ((size_t) (xe - xs)) / size;
+    emu_sort_local_quick(xs, nelem, size, compar);
+    emu_memcpy(z, xs, size * nelem);
+}
+
+/* Returns the first element that is strictly greater than x in the array between [xs, xe) */
+static void *
+upper_bound(void *xs, void *xe, size_t size, int (*compar)(const void *, const void *), void *x)
+{
+    void *xm;
+    size_t xn;
+    while (xs < xe) {
+        xn = ((size_t) (xe - xs)) / size;
+        xm = xs + (xn / 2) * size;
+        if (compar (x, xm) >= 0) {
+            xs = xm + size; /* move left pointer */
+        } else {
+            xe = xm;
+        }
+    }
+    return xs;
+}
+
+/* Returns first element that is not less than x in the array between [xs, xe) */
+static void *
+lower_bound(void *xs, void *xe, size_t size, int (*compar)(const void *, const void *), void *x)
+{
+    void *xm;
+    size_t xn;
+    while (xs < xe) {
+        xn = ((size_t) (xe - xs)) / size;
+        xm = xs + (xn / 2) * size;
+        if (compar (x, xm) <= 0) {
+            xe = xm;
+        } else {
+            xs = xm + size;
+        }
+    }
+    return xs;
+}
+
+static void
+pss_serial_merge(void *xs, void *xe, void *ys, void *ye, void *z, size_t size, int (*compar)(const void *, const void *))
+{
+    /* Merge both the halves */
+    while (xs != xe && ys != ye) {
+        if (compar (xs, ys) < 0) {
+            emu_memcpy(z, xs, size);
+            xs += size;
+        } else {
+            emu_memcpy(z, ys, size);
+            ys += size;
+        }
+        z += size;
+    }
+
+    /* Remaining elements of left half */
+    while (xs != xe) {
+        emu_memcpy(z, xs, size);
+        xs += size;
+        z += size;
+    }
+
+    /* Remaining elements of the right half */
+    while (ys != ye) {
+        emu_memcpy(z, ys, size);
+        ys += size;
+        z += size;
+    }
+}
+
+static void
+pss_merge(void *xs, void *xe, void *ys, void *ye, void *z, size_t size, int (*compar)(const void *, const void *))
+{
+    const size_t P_MERGE_CUTOFF = 2000;
+
+    size_t nelem =  ((size_t) ((xe - xs) + (ye - ys))) / size;
+
+    if (nelem <= P_MERGE_CUTOFF) { /* Perform a serial merge if we have exceeded number of threads */
+        pss_serial_merge(xs, xe, ys, ye, z, size, compar);
+    } else {
+        void *xm;
+        void *ym;
+
+        if ( (xe - xs) < (ye - ys) ) {
+            size_t yn =  ((size_t) (ye - ys)) / size;
+            ym = ys + (yn / 2) * size;
+            xm = upper_bound(xs, xe, size, compar, ym);
+        } else {
+            size_t xn = ((size_t) (xe - xs)) / size;
+            xm = xs + (xn / 2) * size;
+            ym = lower_bound(ys, ye, size, compar, xm);
+        }
+
+        cilk_spawn pss_merge(xs, xm, ys, ym, z, size, compar); /* merge the left half of the array */
+
+        z += ((xm - xs) + (ym - ys)); /* increment z to correct size */
+
+        pss_merge(xm, xe, ym, ye, z, size, compar); /* xs becomes xm and ys becomes ym */
+
+        cilk_sync;
+
+    }
+}
+
+static void
+pss_helper(void *xs, void *xe, void *z, size_t size, bool inplace, int (*compar)(const void *, const void *), size_t grain)
+{
+    const size_t PSS_CUTOFF = 500;
+
+    /* sequential sort should put the data in the z array */
+    size_t nelem = ((size_t) (xe - xs)) / size;
+
+    if ( nelem <= PSS_CUTOFF ) {
+        /* sort the base array into z */
+        pss_base(xs, xe, z, size, compar);
+    } else {
+        void *xm = xs + (nelem / 2) * size;
+        void *zm = z + (xm - xs);
+        void *ze = z + (xe - xs);
+
+        cilk_spawn pss_helper(xs, xm, z, size, !inplace, compar, grain);
+        pss_helper(xm, xe, zm, size, !inplace, compar, grain);
+
+        cilk_sync;
+
+        /* Either we merge into z or x depending on the recursion level */
+        if (inplace) {
+            pss_merge(z, zm, zm, ze, xs, size, compar);
+        } else {
+            pss_merge(xs, xm, xm, xe, z, size, compar);
+        }
+
+    }
+}
+
+/******* Utility Functions *******/
+
+/**
+ * Insertion sort implementation for smaller array sizes.
+ *
+ * @param base -- The array
+ * @param nelem -- The array size
+ * @param size -- Size of each element of the array
+ * @param compar -- The comparator
+ *
+ */
+static void
+insertion_sort(void *base, size_t nelem, size_t size, int (*compar)(const void *, const void *))
+{
+    char key[size];
+    for (size_t i = 1; i < nelem; i++) {
+        /* create the key */
+        emu_memcpy(key, base + i * size, size);
+
+        long j = i - 1;
+        while (j >= 0 && compar(base + j * size, (void *) key) > 0) {
+            emu_memcpy(base + (j + 1) * size, base + j * size, size);
+            j = j -1;
+        }
+        /* put the base in its place */
+        emu_memcpy(base + (j + 1) * size, key, size);
+    }
+}
 
 /*
  * Function to swap data pointed to by two pointers
@@ -488,17 +642,22 @@ static void p_partition(void);
  * @param b -- The second pointer
  * @param size -- The size of the data to swap
  */
-static void
+static inline void
 swap(void *a, void *b, size_t size)
 {
-    if (!(size % sizeof(long))) {
-        long *p =a, *q = b, t;
-        for (size_t i = 0; i < size; i += sizeof(long)) {
-            t = p[i];
-            p[i] = q[i];
-            q[i] = t;
-        }
+    if (!(size & (sizeof(long) - 1))) {
+        long *p = a;
+        long *q = b;
+        long tmp;
+        do {
+            tmp = *p;
+            *p++ = *q;
+            *q++ = tmp;
+        } while ( (size -= sizeof(long)) );
     }
+
+    /* This code does not work on EMU -- investigate why? */
+
     // else {
     //     char *p = a, *q = b, t;
     //     for (size_t i = 0; i < size; i++) {
@@ -506,5 +665,22 @@ swap(void *a, void *b, size_t size)
     //         p[i] = q[i];
     //         q[i] = t;
     //     }
+    // }
+}
+
+static inline void
+emu_memcpy(void *dest, const void *src, size_t len)
+{
+    /* If not a multiple of sizeof(long), just call the library function */
+    if (!(len & (sizeof(long) - 1))) {
+        long *d = dest;
+        const long *s = src;
+        while (len) {
+            *d++ = *s++;
+            len -= sizeof(long);
+        }
+    }
+    // else {
+    //     memcpy(dest, src, len);
     // }
 }
