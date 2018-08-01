@@ -79,6 +79,7 @@ public:
 
     typedef T value_type;
 
+// TODO why doesn't this constructor work?
 //    // Construct a ragged array from a list of bucket sizes
 //    ragged_array(const striped_array<long> & sizes)
 //    : offsets(compute_offsets(sizes))
