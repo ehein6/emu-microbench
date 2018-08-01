@@ -9,9 +9,11 @@
 
 #include <stddef.h>
 
+/* General sort -- calls the optimum solution based on input parameters */
 void emu_sort_local(void *base, size_t num, size_t size, int (*compar)(const void *, const void *));
 
 /* Specific functions */
 void emu_sort_local_bitonic(void *base, size_t num, size_t size, int (*compar)(const void *, const void *));
 void emu_sort_local_merge(void *base, size_t num, size_t size, int (*compar)(const void *, const void *));
 void emu_sort_local_quick(void *base, size_t num, size_t size, int (*compar)(const void *, const void *));
+void emu_sort_local_pss(void *base, size_t num, size_t size, int (*compar)(const void *, const void *));

@@ -16,3 +16,11 @@ emu_chunked_array_to_local(emu_chunked_array * self, void * local_array);
 // Number of items and size per item MUST match between the two arrays
 void
 emu_chunked_array_from_local(emu_chunked_array * self, void * local_array);
+
+/**
+ * Initializes all replicated copies of @c array with the version on nodelet 0
+ * @param array Pointer to replicated array
+ * @param n array length in number of elements
+ */
+void
+emu_replicated_array_init(long * array, long n);

@@ -12,16 +12,10 @@ The Emu toolchain lacks support for advanced features and only targets the C lan
 - **No cilk_for**: `cilk_for` is not working correctly on Emu hardware right now. It is also implemented
 rather inefficiently in the simulator.
 - **No lambdas**:  C doesn't have lambdas,
-so instead we use a function pointer and a void pointer to the captured data. The lambda function
+so instead we use a function pointer and a va_list to forward the captured data. The lambda function
 needs to be defined before the function that runs a parallel loop.
 Also, to avoid the overhead of an indirect function call for each element, each user-provided lambda
 is expected to handle a range of elements (from `begin` to `end`) rather than a single element.
-- **No varargs**: Trying to `cilk_spawn` a function with `varargs` resulted in data corruption.
-Probably the size of the spawned function's stack frame needs to be known at compile-time.
-I used [Cog](https://nedbatchelder.com/code/cog/) to generate several versions of each function with a
-varying number of arguments. This technique has the advantage that passed variables will be
-copied to the remote nodelet on a spawn rather than forcing a migration every time they are touched.
-The downside is that arguments need to be carefully casted to/from `void*`.
 - **No operator overloading**: Indexing into an `emu_chunked_array` looks like
 `emu_chunked_array_index(array, i)` instead of `array[i]`,
 
@@ -39,9 +33,9 @@ Arguments:
 - `worker` - worker function that will be called on each array slice in parallel.
 The loop within the worker function should go from `begin` to `end` with a stride
 of `1`.
-- `arg1`, `arg2`, etc. - Additional arguments to pass to each invocation of the
-worker function. Arguments will be passed as `void*`, and you will need to cast
-back to the appropriate type within the worker function.
+- `args` - Additional arguments to pass to each invocation of the
+worker function. Arguments will be passed via the varargs interface, and you will need to cast
+back to the appropriate type within the worker function using the `va_arg` macro.
 
 Example:
 
@@ -50,15 +44,15 @@ long n = 1024;
 long b = 5;
 long * x = malloc(n * sizeof(long));
 
-void worker(long begin, long end, void * arg1, void * arg2)
+void worker(long begin, long end, va_list args)
 {
-    long * x = (long*)arg1;
-    long b = (long)arg2;
+    long * x = va_arg(args, long*);
+    long b = va_arg(args, long);
     for (long i = begin; i < end; ++i) {
         x[i] += b;
     }
 }
-emu_local_for_v2(0, n, LOCAL_GRAIN(n), worker, x, (void*)b);
+emu_local_for(0, n, LOCAL_GRAIN(n), worker, x, b);
 ```
 
 ## emu_for_1d.h
@@ -73,27 +67,25 @@ Arguments:
 The loop within the worker function should go from `begin` to `end` and have a
 stride of `NODELETS()`. Each worker function will be assigned elements on a
 single nodelet.
-- `arg1`, `arg2`, etc. - Additional arguments to pass to each invocation of the
-worker function. Arguments will be passed as `void*`, and you will need to cast
-back to the appropriate type within the worker function.
-
-Example:
+- `args` - Additional arguments to pass to each invocation of the
+worker function. Arguments will be passed via the varargs interface, and you will need to cast
+back to the appropriate type within the worker function using the `va_arg` macro.
 
 ```
 long n = 1024;
 long b = 5;
 long * x = malloc1dlong(n);
 
-void worker(long * array, long begin, long end, void * arg1)
+void worker(long * array, long begin, long end, va_list args)
 {
     long * x = array;
-    long b = (long)arg1;
+    long b = va_arg(args, long);
     long nodelets = NODELETS();
     for (long i = begin; i < end; i += nodelets) {
         x[i] += b;
     }
 }
-emu_1d_array_apply_v1(x, n, GLOBAL_GRAIN(n), worker, (void*)b);
+emu_1d_array_apply(x, n, GLOBAL_GRAIN(n), worker, b);
 ```
 
 ### emu_reduce_1d.h
@@ -108,9 +100,9 @@ Arguments:
 The loop within the worker function should go from `begin` to `end` and have a
 stride of `NODELETS()`. Each worker function will be assigned elements on a
 single nodelet, and should REMOTE_ADD to the `sum` argument.
-- `arg1`, `arg2`, etc. - Additional arguments to pass to each invocation of the
-worker function. Arguments will be passed as `void*`, and you will need to cast
-back to the appropriate type within the worker function.
+- `args` - Additional arguments to pass to each invocation of the
+worker function. Arguments will be passed via the varargs interface, and you will need to cast
+back to the appropriate type within the worker function using the `va_arg` macro.
 
 Example:
 
@@ -165,9 +157,9 @@ The loop within the worker function is responsible for array elements from `begi
 with a stride of `1`. Because each worker function will be assigned elements on a
 single nodelet, it is more efficient to call `emu_chunked_array_index` once before the loop,
 and do linear indexing from that pointer, as shown.
-- `arg1`, `arg2`, etc. - Additional arguments to pass to each invocation of the
-worker function. Arguments will be passed as `void*`, and you will need to cast
-back to the appropriate type within the worker function.
+- `args` - Additional arguments to pass to each invocation of the
+worker function. Arguments will be passed via the varargs interface, and you will need to cast
+back to the appropriate type within the worker function using the `va_arg` macro.
 
 Example:
 
@@ -177,16 +169,16 @@ long b = 5;
 emu_chunked_array * x = emu_chunked_array_replicated_new(n, sizeof(long));
 
 void
-worker(emu_chunked_array * array, long begin, long end, void * arg1)
+worker(emu_chunked_array * array, long begin, long end, va_list args)
 {
-    long b = (long)arg1;
+    long b = va_arg(args, long);
     long * x = emu_chunked_array_index(array, begin);
 
     for (long i = 0; i < end-begin; ++i) {
         x[i] += b;
     }
 }
-emu_chunked_array_apply_v1(x, GLOBAL_GRAIN(n), worker, (void*)b);
+emu_chunked_array_apply(x, GLOBAL_GRAIN(n), worker, b);
 ```
 
 ### emu_reduce_2d.h

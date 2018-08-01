@@ -1,52 +1,36 @@
 #pragma once
+#include <stdarg.h>
 
-
-/*[[[cog
-
-from string import Template
-
-for num_args in xrange(6):
-
-    arg_decls = "".join([", void * arg%i"%(i+1) for i in xrange(num_args)])
-    declaration = Template("""
-        void
-        emu_1d_array_apply_v${num_args}(long * array, long size, long grain,
-            void (*worker)(long * array, long begin, long end${arg_decls})
-            ${arg_decls}
-        );
-    """)
-    cog.out(declaration.substitute(**locals()), dedent=True, trimblanklines=True)
-
-]]]*/
+/**
+ * Implements a distributed parallel for over a @c malloc1dlong() array.
+ * @param array Pointer to striped array allocated with @c malloc1dlong().
+ * @param size Length of the array (number of elements)
+ * @param grain Minimum number of elements to assign to each thread.
+ * @param worker worker function that will be called on each array slice in parallel.
+ * The loop within the worker function should go from @c begin to @c end and have a
+ * stride of @c NODELETS(). Each worker function will be assigned elements on a
+ * single nodelet.
+ * @param ... Additional arguments to pass to each invocation of the
+ * worker function. Arguments will be passed via the varargs interface, and you will need to cast
+ * back to the appropriate type within the worker function using the @c va_arg macro.
+ */
 void
-emu_1d_array_apply_v0(long * array, long size, long grain,
-    void (*worker)(long * array, long begin, long end)
-    
+emu_1d_array_apply(
+    long * array,
+    long size,
+    long grain,
+    void (*worker)(long * array, long begin, long end, va_list args),
+    ...
 );
-void
-emu_1d_array_apply_v1(long * array, long size, long grain,
-    void (*worker)(long * array, long begin, long end, void * arg1)
-    , void * arg1
-);
-void
-emu_1d_array_apply_v2(long * array, long size, long grain,
-    void (*worker)(long * array, long begin, long end, void * arg1, void * arg2)
-    , void * arg1, void * arg2
-);
-void
-emu_1d_array_apply_v3(long * array, long size, long grain,
-    void (*worker)(long * array, long begin, long end, void * arg1, void * arg2, void * arg3)
-    , void * arg1, void * arg2, void * arg3
-);
-void
-emu_1d_array_apply_v4(long * array, long size, long grain,
-    void (*worker)(long * array, long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4)
-    , void * arg1, void * arg2, void * arg3, void * arg4
-);
-void
-emu_1d_array_apply_v5(long * array, long size, long grain,
-    void (*worker)(long * array, long begin, long end, void * arg1, void * arg2, void * arg3, void * arg4, void * arg5)
-    , void * arg1, void * arg2, void * arg3, void * arg4, void * arg5
-);
-/* [[[end]]] */
 
+/**
+ * Like emu_1d_array_apply, but accepts a va_list to allow forwarding of varargs.
+ */
+void
+emu_1d_array_apply_var(
+    long * array,
+    long size,
+    long grain,
+    void (*worker)(long * array, long begin, long end, va_list args),
+    va_list args
+);

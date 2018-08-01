@@ -27,6 +27,8 @@ extern "C" {
 // stack frame from being carried along. For x86, inlining is good.
 #define noinline
 
+#define starttiming()
+
 #include <sys/time.h>
 #define MEMORYWEB_X86_CLOCK_RATE (500L)
 static inline long CLOCK()
@@ -67,6 +69,7 @@ mw_malloc2d(size_t nelem, size_t sz)
     // We need an 8-byte pointer for each element, plus the array of elements
     size_t bytes = nelem * sizeof(long) + nelem * sz;
     unsigned char ** ptrs = (unsigned char **)malloc(bytes);
+    if (ptrs == NULL) return NULL;
     // Skip past the pointers to get to the raw array
     unsigned char * data = (unsigned char *)ptrs + nelem * sizeof(long);
     // Assign pointer to each element
