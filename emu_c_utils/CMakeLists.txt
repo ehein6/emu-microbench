@@ -8,7 +8,6 @@ set(sources
     emu_scatter_gather.c
     emu_for_local.c
     emu_sort_local.c
-    emu_c_utils.c
     hooks.c
     layout.c
 )

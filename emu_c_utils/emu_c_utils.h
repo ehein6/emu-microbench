@@ -5,29 +5,12 @@
  */
 #pragma once
 
-#include <stddef.h>
-#include <stdarg.h>
-
-#define REPLICATE(X) replicate_struct((X), sizeof(*(X)))
-void replicate_struct(void * s, size_t sz);
-
-/**
- * Execute a function on each nodelet in parallel
- * @param array Pointer to any replicated variable
- * @param worker Function that will be executed on each nodelet.
- * @param ...
- */
-void emu_for_each_nodelet(
-    long * array,
-    void (*worker)(void * hint, long nodelet_id, va_list args),
-    ...
-);
-
-/**
- * Like emu_for_each_nodelet, but accepts a va_list to allow forwarding of varargs.
- */
-void emu_for_each_nodelet_var(
-    long * array,
-    void (*worker)(void * hint, long nodelet_id, va_list args),
-    va_list args
-);
+#include "emu_grain_helpers.h"
+#include "emu_for_1d.h"
+#include "emu_reduce_1d.h"
+#include "emu_chunked_array.h"
+#include "emu_scatter_gather.h"
+#include "emu_for_local.h"
+#include "emu_sort_local.h"
+#include "hooks.h"
+#include "layout.h"

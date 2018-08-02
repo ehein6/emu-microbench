@@ -69,7 +69,11 @@ emu_chunked_array_replicated_init(emu_chunked_array * self, long num_elements, l
 {
     emu_chunked_array *self_0 = mw_get_nth(self, 0);
     emu_chunked_array_init(self_0, num_elements, element_size);
-    REPLICATE(self_0);
+    mw_replicated_init((long*)&self->data, (long)self_0->data);
+    mw_replicated_init(&self->element_size, self_0->element_size);
+    mw_replicated_init(&self->log2_elements_per_chunk, self_0->log2_elements_per_chunk);
+    mw_replicated_init(&self->num_chunks, self_0->num_chunks);
+    mw_replicated_init(&self->num_elements, self_0->num_elements);
 }
 
 void
