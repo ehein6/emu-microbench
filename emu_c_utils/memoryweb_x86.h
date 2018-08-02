@@ -61,7 +61,7 @@ mw_localfree(void * localpointer)
 }
 
 static inline void *
-mw_arrayindex(long * array2d, unsigned long i, unsigned long numelements, size_t eltsize)
+mw_arrayindex(void * array2d, unsigned long i, unsigned long numelements, size_t eltsize)
 {
     unsigned char ** array = (unsigned char**) array2d;
     return &array[i][0];
