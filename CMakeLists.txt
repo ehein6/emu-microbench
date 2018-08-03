@@ -27,9 +27,9 @@ else()
     link_libraries(cilkrts)
 endif()
 
-add_subdirectory(emu_c_utils)
-include_directories(emu_c_utils)
-link_libraries(emu_c_utils)
+#add_subdirectory(emu_c_utils)
+#include_directories(emu_c_utils)
+#link_libraries(emu_c_utils)
 
 set(ENABLE_VALIDATION "ON"
     CACHE BOOL "Validate results after each benchmark. The initialization and validation steps may spawn more
@@ -51,6 +51,6 @@ add_executable(scatter scatter.c)
 
 # C++ benchmarks
 # Include support libraries
-include_directories(emu_cxx_utils)
+#include_directories(emu_cxx_utils)
 add_executable(local_stream_cxx local_stream_cxx.cc)
 add_executable(global_stream_cxx global_stream_cxx.cc)
