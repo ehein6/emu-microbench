@@ -80,8 +80,7 @@ void worker(long * array, long begin, long end, va_list args)
 {
     long * x = array;
     long b = va_arg(args, long);
-    long nodelets = NODELETS();
-    for (long i = begin; i < end; i += nodelets) {
+    for (long i = begin; i < end; i += NODELETS()) {
         x[i] += b;
     }
 }
@@ -100,7 +99,7 @@ Arguments:
 The loop within the worker function should go from `begin` to `end` and have a
 stride of `NODELETS()`. Each worker function will be assigned elements on a
 single nodelet, and should REMOTE_ADD to the `sum` argument.
-- `args` - Additional arguments to pass to each invocation of the
+- `...` - Additional arguments to pass to each invocation of the
 worker function. Arguments will be passed via the varargs interface, and you will need to cast
 back to the appropriate type within the worker function using the `va_arg` macro.
 
@@ -111,18 +110,17 @@ long n = 1024;
 long b = 5;
 long * x = malloc1dlong(n);
 
-void worker(long * array, long begin, long end, long * sum, void * arg1)
+void worker(long * array, long begin, long end, long * sum, va_list args)
 {
     long * x = array;
-    long b = (long)arg1;
-    long nodelets = NODELETS();
+    long b = va_arg(args, long);
     long local_sum = 0;
-    for (long i = begin; i < end; i += nodelets) {
+    for (long i = begin; i < end; i += NODELETS()) {
         local_sum += x[i] * b;
     }
     REMOTE_ADD(sum, local_sum);
 }
-long sum = emu_1d_array_reduce_sum_v2(x, n, GLOBAL_GRAIN(n), worker, (void*)b);
+long sum = emu_1d_array_reduce_sum(x, n, GLOBAL_GRAIN(n), worker, b);
 ```
 
 ### emu_chunked_array.h
