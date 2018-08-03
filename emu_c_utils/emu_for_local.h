@@ -52,7 +52,7 @@ void
 emu_local_for_set_long(long * array, long n, long value);
 
 /**
- * Copies @c array to @c value in parallel
+ * Copies @c src to @c dst in parallel
  * @param dst Pointer to destination array
  * @param src Pointer to source array
  * @param n Array length

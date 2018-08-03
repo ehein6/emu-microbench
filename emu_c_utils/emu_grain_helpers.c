@@ -15,7 +15,7 @@ get_gcs_per_nodelet()
         if (str){
             mw_replicated_init(&gcs_per_nodelet, atol(str));
         } else {
-            mw_replicated_init(&gcs_per_nodelet, 4);
+            mw_replicated_init(&gcs_per_nodelet, 1);
         }
     }
     return gcs_per_nodelet;

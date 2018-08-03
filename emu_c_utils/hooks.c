@@ -48,7 +48,7 @@ static long get_core_clk_mhz() {
         if (str){
             core_clk_mhz = atol(str);
         } else {
-            core_clk_mhz = 300;
+            core_clk_mhz = 150;
         }
     }
     return core_clk_mhz;
