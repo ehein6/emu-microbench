@@ -5,20 +5,12 @@
 #include <cilk/cilk.h>
 #include <assert.h>
 #include <string.h>
-#include <hooks.h>
-#include <striped_array.h>
+#include <emu_c_utils/emu_c_utils.h>
+#include <emu_cxx_utils/striped_array.h>
+#include <emu_cxx_utils/spawn_templates.h>
+#include <emu_cxx_utils/chunked_array.h>
+#include <emu_cxx_utils/mirrored.h>
 #include "common.h"
-#include "spawn_templates.h"
-#include "chunked_array.h"
-#include "mirrored.h"
-
-#ifdef __le64__
-extern "C" {
-#include <memoryweb.h>
-}
-#else
-#include "memoryweb_x86.h"
-#endif
 
 using namespace emu;
 

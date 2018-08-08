@@ -5,15 +5,7 @@
 #include <cilk/cilk.h>
 #include <assert.h>
 #include <string.h>
-#include <hooks.h>
-
-#include "emu_chunked_array.h"
-
-#ifdef __le64__
-#include <memoryweb.h>
-#else
-#include "memoryweb_x86.h"
-#endif
+#include <emu_c_utils/emu_c_utils.h>
 
 #include "common.h"
 

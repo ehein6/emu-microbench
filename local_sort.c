@@ -5,10 +5,8 @@
 #include <cilk/cilk.h>
 #include <assert.h>
 #include <string.h>
-#include <hooks.h>
-#include <emu_sort_local.h>
+#include <emu_c_utils/emu_c_utils.h>
 
-#include "emu_for_local.h"
 #include "recursive_spawn.h"
 #include "common.h"
 

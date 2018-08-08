@@ -5,18 +5,10 @@
 #include <cilk/cilk.h>
 #include <assert.h>
 #include <string.h>
-#include <emu_for_1d.h>
 
-#include "hooks.h"
+#include <emu_c_utils/emu_c_utils.h>
 #include "common.h"
 #include "recursive_spawn.h"
-#include "emu_chunked_array.h"
-
-#ifdef __le64__
-#include <memoryweb.h>
-#else
-#include "memoryweb_x86.h"
-#endif
 
 typedef struct global_stream_data {
     long * a;

@@ -6,8 +6,8 @@
 #include <assert.h>
 #include <string.h>
 
-#include "hooks.h"
-#include "spawn_templates.h"
+#include <emu_c_utils/emu_c_utils.h>
+#include <emu_cxx_utils/spawn_templates.h>
 #include "common.h"
 
 using namespace emu;

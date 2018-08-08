@@ -38,7 +38,7 @@ else()
     add_dependencies(emu_c_utils build_emu_c_utils)
     set_target_properties(emu_c_utils PROPERTIES IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/lib/libemu_c_utils.a)
 
-    include_directories(${CMAKE_BINARY_DIR}/include/emu_c_utils)
+    include_directories(${CMAKE_BINARY_DIR}/include)
     link_libraries(emu_c_utils)
 
     ExternalProject_Add(build_emu_cxx_utils
@@ -48,7 +48,7 @@ else()
         CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
     )
     add_library(emu_cxx_utils INTERFACE)
-    target_include_directories(emu_cxx_utils INTERFACE ${CMAKE_BINARY_DIR}/include/emu_cxx_utils)
+    target_include_directories(emu_cxx_utils INTERFACE ${CMAKE_BINARY_DIR}/include)
     link_libraries(emu_cxx_utils)#include_directories(${CMAKE_BINARY_DIR}/include/emu_cxx_utils)
 
 endif()

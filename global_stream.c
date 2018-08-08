@@ -8,14 +8,9 @@
 
 #include "common.h"
 
-#include <emu_c_utils.h>
+#include <emu_c_utils/emu_c_utils.h>
 #include "recursive_spawn.h"
 
-#ifdef __le64__
-#include <memoryweb.h>
-#else
-#include <memoryweb_x86.h>
-#endif
 
 typedef struct global_stream_data {
     emu_chunked_array array_a;
