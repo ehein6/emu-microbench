@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 3.5.1)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include (ExternalProject)
 
 project(emu-microbench C CXX)
 
@@ -25,11 +26,32 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
 else()
     # Link with cilk runtime
     link_libraries(cilkrts)
-endif()
 
-#add_subdirectory(emu_c_utils)
-#include_directories(emu_c_utils)
-#link_libraries(emu_c_utils)
+    # Build emu libraries for x86
+    ExternalProject_Add(build_emu_c_utils
+        PREFIX              ${CMAKE_BINARY_DIR}/external
+        GIT_REPOSITORY      git@github.com:emusolutions/emu_c_utils.git # TODO allow anonymous clone
+        GIT_TAG             master
+        CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
+    )
+    add_library(emu_c_utils IMPORTED STATIC)
+    add_dependencies(emu_c_utils build_emu_c_utils)
+    set_target_properties(emu_c_utils PROPERTIES IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/lib/libemu_c_utils.a)
+
+    include_directories(${CMAKE_BINARY_DIR}/include/emu_c_utils)
+    link_libraries(emu_c_utils)
+
+    ExternalProject_Add(build_emu_cxx_utils
+        PREFIX              ${CMAKE_BINARY_DIR}/external
+        GIT_REPOSITORY      git@github.com:emusolutions/emu_cxx_utils.git # TODO allow anonymous clone
+        GIT_TAG             master
+        CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
+    )
+    add_library(emu_cxx_utils INTERFACE)
+    target_include_directories(emu_cxx_utils INTERFACE ${CMAKE_BINARY_DIR}/include/emu_cxx_utils)
+    link_libraries(emu_cxx_utils)#include_directories(${CMAKE_BINARY_DIR}/include/emu_cxx_utils)
+
+endif()
 
 set(ENABLE_VALIDATION "ON"
     CACHE BOOL "Validate results after each benchmark. The initialization and validation steps may spawn more
@@ -50,7 +72,5 @@ add_executable(bulk_copy bulk_copy.c)
 add_executable(scatter scatter.c)
 
 # C++ benchmarks
-# Include support libraries
-#include_directories(emu_cxx_utils)
 add_executable(local_stream_cxx local_stream_cxx.cc)
 add_executable(global_stream_cxx global_stream_cxx.cc)
