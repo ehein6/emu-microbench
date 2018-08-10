@@ -26,32 +26,12 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
 else()
     # Link with cilk runtime
     link_libraries(cilkrts)
-
-    # Build emu libraries for x86
-    ExternalProject_Add(build_emu_c_utils
-        PREFIX              ${CMAKE_BINARY_DIR}/external
-        GIT_REPOSITORY      git@github.com:emusolutions/emu_c_utils.git # TODO allow anonymous clone
-        GIT_TAG             master
-        CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
-    )
-    add_library(emu_c_utils IMPORTED STATIC)
-    add_dependencies(emu_c_utils build_emu_c_utils)
-    set_target_properties(emu_c_utils PROPERTIES IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/lib/libemu_c_utils.a)
-
-    include_directories(${CMAKE_BINARY_DIR}/include)
-    link_libraries(emu_c_utils)
-
-    ExternalProject_Add(build_emu_cxx_utils
-        PREFIX              ${CMAKE_BINARY_DIR}/external
-        GIT_REPOSITORY      git@github.com:emusolutions/emu_cxx_utils.git # TODO allow anonymous clone
-        GIT_TAG             master
-        CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
-    )
-    add_library(emu_cxx_utils INTERFACE)
-    target_include_directories(emu_cxx_utils INTERFACE ${CMAKE_BINARY_DIR}/include)
-    link_libraries(emu_cxx_utils)#include_directories(${CMAKE_BINARY_DIR}/include/emu_cxx_utils)
-
 endif()
+
+# Link with emu_c_utils
+find_package(emu_c_utils REQUIRED)
+link_libraries(${EMU_C_UTILS_LIBRARIES})
+include_directories(${EMU_C_UTILS_INCLUDE_DIRS})
 
 set(ENABLE_VALIDATION "ON"
     CACHE BOOL "Validate results after each benchmark. The initialization and validation steps may spawn more
