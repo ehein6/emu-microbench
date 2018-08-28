@@ -51,6 +51,10 @@ add_executable(local_sort local_sort.c)
 add_executable(bulk_copy bulk_copy.c)
 add_executable(scatter scatter.c)
 
-# C++ benchmarks
-add_executable(local_stream_cxx local_stream_cxx.cc)
-add_executable(global_stream_cxx global_stream_cxx.cc)
+set(ENABLE_CXX_BENCHMARKS OFF
+    CACHE BOOL "Build C++ benchmarks, which rely on emu_cxx_utils.")
+if (ENABLE_CXX_BENCHMARKS)
+    # C++ benchmarks
+    add_executable(local_stream_cxx local_stream_cxx.cc)
+    add_executable(global_stream_cxx global_stream_cxx.cc)
+endif()
