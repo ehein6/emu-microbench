@@ -43,6 +43,9 @@ def iterSuite(suite):
 def check_local_config(local_config):
     """Make sure paths to input sets and executables are valid"""
 
+    if local_config["platform"] in ["emu", "emuchick"]:
+        return
+
     try:
         for benchmark, path in local_config["binaries"].iteritems():
             if not os.path.isfile(path):
@@ -102,7 +105,7 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
         echo `hostname` | tee -a $LOGFILE $OUTFILE >/dev/null
         """
     # Run multiple trials
-    template += """for trial in $(seq {num_trials}); do """
+    # template += """for trial in $(seq {num_trials}); do """
 
     # Emu hardware (single node) command line
     if local_config["platform"] == "native":
@@ -111,7 +114,7 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
 
     elif local_config["platform"] == "emu":
         template += """
-        emu_handler_and_loader 0 0 -- {exe} \\"""
+        emu_handler_and_loader 0 0 {exe} -- \\"""
 
     # Emu hardware (multi node) command line
     elif local_config["platform"] == "emuchick":
@@ -153,13 +156,14 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
         --block_size {block_size} \\
         --spawn_mode {spawn_mode} \\
         --sort_mode {sort_mode} \\
+        --num_trials {num_trials} \\
         &>> $LOGFILE
         """
 
     else:
         raise Exception("Unsupported benchmark {}".format(args.benchmark))
 
-    template += "done\n"
+    # template += "done\n"
 
     # Fill in the blanks
     command = textwrap.dedent(template).format(**args)
