@@ -66,6 +66,8 @@ global_stream_deinit(global_stream_data * data)
     emu_chunked_array_replicated_deinit(&data->array_c);
 }
 
+#ifndef NO_VALIDATE
+
 static noinline void
 global_stream_validate_worker(emu_chunked_array * array, long begin, long end, va_list args)
 {
@@ -85,6 +87,7 @@ global_stream_validate(global_stream_data * data)
         global_stream_validate_worker
     );
 }
+#endif
 
 // serial - just a regular for loop
 void
@@ -214,29 +217,29 @@ global_stream_add_recursive_remote_spawn(global_stream_data * data)
     recursive_remote_spawn_level1(0, NODELETS(), data->a[0], data);
 }
 
-void
-global_stream_add_library_worker(emu_chunked_array * array, long begin, long end, va_list args)
-{
-    (void)array;
-    global_stream_data * data = va_arg(args, global_stream_data *);
-    long block_sz = data->n / NODELETS();
+// void
+// global_stream_add_library_worker(emu_chunked_array * array, long begin, long end, va_list args)
+// {
+//     (void)array;
+//     global_stream_data * data = va_arg(args, global_stream_data *);
+//     long block_sz = data->n / NODELETS();
 
-    long * c = &INDEX(data->c, block_sz, begin);
-    long * b = &INDEX(data->b, block_sz, begin);
-    long * a = &INDEX(data->a, block_sz, begin);
+//     long * c = &INDEX(data->c, block_sz, begin);
+//     long * b = &INDEX(data->b, block_sz, begin);
+//     long * a = &INDEX(data->a, block_sz, begin);
 
-    for (long i = 0; i < end-begin; ++i) {
-        c[i] = a[i] + b[i];
-    }
-}
+//     for (long i = 0; i < end-begin; ++i) {
+//         c[i] = a[i] + b[i];
+//     }
+// }
 
-void
-global_stream_add_library(global_stream_data * data)
-{
-    emu_chunked_array_apply(&data->array_a, data->n / data->num_threads,
-        global_stream_add_library_worker, data
-    );
-}
+// void
+// global_stream_add_library(global_stream_data * data)
+// {
+//     emu_chunked_array_apply(&data->array_a, data->n / data->num_threads,
+//         global_stream_add_library_worker, data
+//     );
+// }
 
 // serial_remote_spawn_shallow - same as serial_remote_spawn, but with only one level of spawning
 void
@@ -332,9 +335,9 @@ int main(int argc, char** argv)
     } else if (!strcmp(args.mode, "recursive_remote_spawn")) {
         runtime_assert(data.num_threads >= NODELETS(), "recursive_remote_spawn mode will always use at least one thread per nodelet");
         RUN_BENCHMARK(global_stream_add_recursive_remote_spawn);
-    } else if (!strcmp(args.mode, "library")) {
-        runtime_assert(data.num_threads >= NODELETS(), "emu_for_2d mode will always use at least one thread per nodelet");
-        RUN_BENCHMARK(global_stream_add_library);
+    // } else if (!strcmp(args.mode, "library")) {
+    //     runtime_assert(data.num_threads >= NODELETS(), "emu_for_2d mode will always use at least one thread per nodelet");
+    //     RUN_BENCHMARK(global_stream_add_library);
     } else if (!strcmp(args.mode, "serial")) {
         runtime_assert(data.num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(global_stream_add_serial);

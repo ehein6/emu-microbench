@@ -2,7 +2,7 @@ set(sources
 #    emu_grain_helpers.c
 #    emu_for_1d.c
 #    emu_reduce_1d.c
-#    emu_chunked_array.c
+    emu_chunked_array.c
 #    emu_for_2d.c
 #    emu_reduce_2d.c
 #    emu_scatter_gather.c

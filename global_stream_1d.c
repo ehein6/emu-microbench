@@ -67,6 +67,8 @@ global_stream_deinit(global_stream_data * data)
     mw_free(data->c);
 }
 
+#ifndef NO_VALIDATE
+
 static void
 global_stream_validate_worker(long * array, long begin, long end, va_list args)
 {
@@ -86,6 +88,7 @@ global_stream_validate(global_stream_data * data)
         global_stream_validate_worker
     );
 }
+#endif
 
 // serial - just a regular for loop
 void
@@ -128,24 +131,24 @@ global_stream_add_serial_spawn(global_stream_data * data)
 }
 
 
-static void
-global_stream_add_library_worker(long * array, long begin, long end, va_list args)
-{
-    (void)array;
-    global_stream_data * data = va_arg(args, global_stream_data *);
-    const long nodelets = NODELETS();
-    for (long i = begin; i < end; i += nodelets) {
-        data->c[i] = data->a[i] + data->b[i];
-    }
-}
+// static void
+// global_stream_add_library_worker(long * array, long begin, long end, va_list args)
+// {
+//     (void)array;
+//     global_stream_data * data = va_arg(args, global_stream_data *);
+//     const long nodelets = NODELETS();
+//     for (long i = begin; i < end; i += nodelets) {
+//         data->c[i] = data->a[i] + data->b[i];
+//     }
+// }
 
-void
-global_stream_add_library(global_stream_data * data)
-{
-    emu_1d_array_apply(data->a, data->n, data->n / data->num_threads,
-        global_stream_add_library_worker, data
-    );
-}
+// void
+// global_stream_add_library(global_stream_data * data)
+// {
+//     emu_1d_array_apply(data->a, data->n, data->n / data->num_threads,
+//         global_stream_add_library_worker, data
+//     );
+// }
 
 void global_stream_run(
     global_stream_data * data,
@@ -210,9 +213,9 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(global_stream_add_cilk_for);
     } else if (!strcmp(args.mode, "serial_spawn")) {
         RUN_BENCHMARK(global_stream_add_serial_spawn);
-    } else if (!strcmp(args.mode, "library")) {
-        runtime_assert(data.num_threads >= NODELETS(), "will always use at least one thread per nodelet");
-        RUN_BENCHMARK(global_stream_add_library);
+    // } else if (!strcmp(args.mode, "library")) {
+    //     runtime_assert(data.num_threads >= NODELETS(), "will always use at least one thread per nodelet");
+    //     RUN_BENCHMARK(global_stream_add_library);
     } else if (!strcmp(args.mode, "serial")) {
         runtime_assert(data.num_threads == 1, "serial mode can only use one thread");
         RUN_BENCHMARK(global_stream_add_serial);

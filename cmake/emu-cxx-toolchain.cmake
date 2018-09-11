@@ -9,4 +9,6 @@ endif()
 
 set(CMAKE_C_COMPILER "${LLVM_CILK_HOME}/bin/emu-cc.sh")
 set(CMAKE_CXX_COMPILER "${LLVM_CILK_HOME}/bin/emu-cc.sh")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --new-llvm")
+set(CMAKE_CXXFLAGS "${CMAKE_C_FLAGS} --new-llvm")
 set(CMAKE_FIND_ROOT_PATH ${LLVM_CILK_HOME}/gossamer64)
