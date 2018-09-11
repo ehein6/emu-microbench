@@ -222,9 +222,10 @@ cilk_for_remote_worker(long * a, long * b, long * c, long n, long grain)
 void
 global_stream_add_cilk_for_remote(global_stream_data * data)
 {
+    long local_n = data->n / NODELETS();
     long grain = data->n / data->num_threads;
-    cilk_for(long i = 0; i < NODELETS(); ++i) {
-        cilk_spawn cilk_for_remote_worker(data->a[i], data->b[i], data->c[i], data->n, grain);
+    for(long i = 0; i < NODELETS(); ++i) {
+        cilk_spawn cilk_for_remote_worker(data->a[i], data->b[i], data->c[i], local_n, grain);
     }
 }
 
