@@ -4,8 +4,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 project(emu-microbench C CXX)
 
 # Use the 2011 standards for C and C++
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 --new-llvm")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 --new-llvm")
 # Turn warnings into errors
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")

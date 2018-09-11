@@ -93,6 +93,7 @@ local_stream_add_serial_spawn(local_stream_data * data)
     cilk_sync;
 }
 
+/*
 void
 local_stream_add_library_worker(long begin, long end, va_list args)
 {
@@ -110,7 +111,7 @@ void local_stream_add_library(local_stream_data * data)
         local_stream_add_library_worker, data->a, data->b, data->c
     );
 }
-
+*/
 void local_stream_run(
     local_stream_data * data,
     const char * name,
@@ -139,7 +140,7 @@ local_stream_validate_worker(long begin, long end, va_list args)
         }
     }
 }
-
+#ifndef NO_VALIDATE
 void
 local_stream_validate(local_stream_data * data)
 {
@@ -147,7 +148,7 @@ local_stream_validate(local_stream_data * data)
         local_stream_validate_worker, data->c
     );
 }
-
+#endif
 
 int main(int argc, char** argv)
 {
@@ -188,8 +189,8 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(local_stream_add_serial_spawn);
     } else if (!strcmp(args.mode, "recursive_spawn")) {
         RUN_BENCHMARK(local_stream_add_recursive_spawn);
-    } else if (!strcmp(args.mode, "library")) {
-        RUN_BENCHMARK(local_stream_add_library);
+//    } else if (!strcmp(args.mode, "library")) {
+//        RUN_BENCHMARK(local_stream_add_library);
     } else if (!strcmp(args.mode, "serial")) {
         RUN_BENCHMARK(local_stream_add_serial);
     } else {
