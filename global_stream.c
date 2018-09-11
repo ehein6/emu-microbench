@@ -210,6 +210,24 @@ recursive_remote_spawn_level1(long low, long high, long * hint, global_stream_da
     recursive_remote_spawn_level2(0, local_n, grain, data->a[low], data->b[low], data->c[low]);
 }
 
+void
+cilk_for_remote_worker(long * a, long * b, long * c, long n, long grain)
+{
+    #pragma cilk grainsize = grain
+    cilk_for(long i = 0; i < n; ++i) {
+        c[i] = a[i] + b[i];
+    }
+}
+
+void
+global_stream_add_cilk_for_remote(global_stream_data * data)
+{
+    long grain = data->n / data->num_threads;
+    cilk_for(long i = 0; i < NODELETS(); ++i) {
+        cilk_spawn cilk_for_remote_worker(data->a[i], data->b[i], data->c[i], data->n, grain);
+    }
+}
+
 // recursive_remote_spawn - Recursively spawns threads to divice up the loop range, using remote spawns where possible.
 void
 global_stream_add_recursive_remote_spawn(global_stream_data * data)
@@ -322,6 +340,8 @@ int main(int argc, char** argv)
 
     if (!strcmp(args.mode, "cilk_for")) {
         RUN_BENCHMARK(global_stream_add_cilk_for);
+    } else if (!strcmp(args.mode, "cilk_for_remote")) {
+        RUN_BENCHMARK(global_stream_add_cilk_for_remote);
     } else if (!strcmp(args.mode, "serial_spawn")) {
         RUN_BENCHMARK(global_stream_add_serial_spawn);
     } else if (!strcmp(args.mode, "serial_remote_spawn")) {
