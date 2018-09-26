@@ -403,11 +403,9 @@ void pointer_chase_run(
     long num_trials)
 {
     for (long trial = 0; trial < num_trials; ++trial) {
-        hooks_set_attr_i64("trial", trial);
         mw_replicated_init(&data->sum, 0);
-        hooks_region_begin(name);
         benchmark(data);
-        double time_ms = hooks_region_end();
+        double time_ms = 0;
 #ifndef NO_VALIDATE
         // Sum of all integers from 0 to n
         long expected_sum = (data->n * (data->n - 1)) / 2;
@@ -485,13 +483,6 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    hooks_set_attr_i64("log2_num_elements", args.log2_num_elements);
-    hooks_set_attr_i64("num_threads", args.num_threads);
-    hooks_set_attr_i64("block_size", args.block_size);
-    hooks_set_attr_str("spawn_mode", args.spawn_mode);
-    hooks_set_attr_str("sort_mode", args.sort_mode);
-    hooks_set_attr_i64("num_nodelets", NODELETS());
-
     long n = 1L << args.log2_num_elements;
     long bytes = n * (sizeof(node));
     long mbytes = bytes / (1000000);
@@ -499,10 +490,8 @@ int main(int argc, char** argv)
     LOG("Initializing %s array with %li elements (%li MB total, %li MB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
 
-    hooks_region_begin("init");
     pointer_chase_data_init(&data,
         n, args.block_size, args.num_threads, sort_mode);
-    hooks_region_end();
     LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads);
 
     #define RUN_BENCHMARK(X) pointer_chase_run(&data, args.spawn_mode, X, args.num_trials)
