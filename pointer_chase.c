@@ -457,47 +457,12 @@ static struct pointer_chase_args
 parse_args(int argc, char *argv[])
 {
     pointer_chase_args args;
-    args.log2_num_elements = 20;
-    args.num_threads = 1;
-    args.block_size = 1;
-    args.spawn_mode = "serial_spawn";
+    args.log2_num_elements = 25;
+    args.num_threads = 256;
+    args.block_size = 4096;
+    args.spawn_mode = "serial_remote_spawn";
     args.sort_mode = "block_shuffle";
     args.num_trials = 1;
-
-    int option_index;
-    while (true)
-    {
-        int c = getopt_long(argc, argv, "", long_options, &option_index);
-        // Done parsing
-        if (c == -1) { break; }
-        // Parse error
-        if (c == '?') {
-            LOG( "Invalid arguments\n");
-            print_help(argv[0]);
-            exit(1);
-        }
-        const char* option_name = long_options[option_index].name;
-
-        if (!strcmp(option_name, "log2_num_elements")) {
-            args.log2_num_elements = atol(optarg);
-        } else if (!strcmp(option_name, "num_threads")) {
-            args.num_threads = atol(optarg);
-        } else if (!strcmp(option_name, "block_size")) {
-            args.block_size = atol(optarg);
-        } else if (!strcmp(option_name, "spawn_mode")) {
-            args.spawn_mode = optarg;
-        } else if (!strcmp(option_name, "sort_mode")) {
-            args.sort_mode = optarg;
-        } else if (!strcmp(option_name, "num_trials")) {
-            args.num_trials = atol(optarg);
-        } else if (!strcmp(option_name, "help")) {
-            print_help(argv[0]);
-            exit(1);
-        }
-    }
-    if (args.log2_num_elements <= 0) { LOG( "log2_num_elements must be > 0"); exit(1); }
-    if (args.block_size <= 0) { LOG( "block_size must be > 0"); exit(1); }
-    if (args.num_threads <= 0) { LOG( "num_threads must be > 0"); exit(1); }
     return args;
 }
 
