@@ -498,12 +498,12 @@ int main(int argc, char** argv)
     long mbytes_per_nodelet = mbytes / NODELETS();
     LOG("Initializing %s array with %li elements (%li MB total, %li MB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
-    fflush(stdout);
+
     hooks_region_begin("init");
     pointer_chase_data_init(&data,
         n, args.block_size, args.num_threads, sort_mode);
     hooks_region_end();
-    LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads); fflush(stdout);
+    LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads);
 
     #define RUN_BENCHMARK(X) pointer_chase_run(&data, args.spawn_mode, X, args.num_trials)
 
