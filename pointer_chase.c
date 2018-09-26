@@ -224,7 +224,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     // Initialize with striped index pattern (i.e. 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15)
     // This will transform malloc2D address mode to sequential
     LOG("Initializing indices...\n");
-    emu_local_for(0, n, LOCAL_GRAIN(n),
+    emu_local_for(0, n, 524288,
         strided_index_init_worker, data->indices, (void*)n
     );
 
@@ -257,7 +257,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
         // Make an array with an element for each block
         long * block_indices = malloc(sizeof(long) * num_blocks);
-        emu_local_for(0, num_blocks, LOCAL_GRAIN(num_blocks),
+        emu_local_for(0, num_blocks, 8192,
             index_init_worker, block_indices
         );
 
@@ -268,12 +268,12 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         LOG("copy old_indices...\n");
         // Make a copy of the indices array
         long * old_indices = malloc(sizeof(long) * n);
-        emu_local_for(0, n, LOCAL_GRAIN(n),
+        emu_local_for(0, n, 524288,
             memcpy_long_worker_var, old_indices, data->indices
         );
 
         LOG("apply block_indices to indices...\n");
-        emu_local_for(0, num_blocks, LOCAL_GRAIN(num_blocks),
+        emu_local_for(0, num_blocks, 8192,
             block_shuffle_worker, block_indices, old_indices, data->indices, (void*)block_size
         );
 
@@ -284,7 +284,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
     if (do_intra_block_shuffle) {
         LOG("Beginning intra-block shuffle\n");
-        emu_local_for(0, num_blocks, LOCAL_GRAIN(num_blocks),
+        emu_local_for(0, num_blocks, 8192,
             intra_block_shuffle_worker, data, (void*)block_size
         );
     }
@@ -293,7 +293,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     emu_replicated_array_init(data->indices, n);
 
     LOG("Linking nodes together...\n");
-    emu_1d_array_apply((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
+    emu_1d_array_apply((long*)data->pool, data->n, 65536,
         relink_worker_1d, data
     );
 
