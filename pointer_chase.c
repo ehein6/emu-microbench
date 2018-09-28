@@ -290,7 +290,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     }
 
     LOG("Scattering index array...\n");
-    emu_replicated_array_init(data->indices, n);
+    emu_replicated_array_init(data->indices, sizeof(long), n);
 
     LOG("Linking nodes together...\n");
     emu_1d_array_apply((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
