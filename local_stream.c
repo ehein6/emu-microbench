@@ -22,11 +22,11 @@ void
 local_stream_init(local_stream_data * data, long n)
 {
     data->n = n;
-    data->a = malloc(n * sizeof(long));
+    data->a = mw_localmalloc(n * sizeof(long), data);
     assert(data->a);
-    data->b = malloc(n * sizeof(long));
+    data->b = mw_localmalloc(n * sizeof(long), data);
     assert(data->b);
-    data->c = malloc(n * sizeof(long));
+    data->c = mw_localmalloc(n * sizeof(long), data);
     assert(data->c);
 #ifndef NO_VALIDATE
     emu_local_for_set_long(data->a, n, 1);
