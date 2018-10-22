@@ -6,8 +6,8 @@
 #  EMU_C_UTILS_DEFINITIONS - Compiler switches required for using emu_c_utils
 
 # Find Emu install dir
-if (DEFINED ENV{LLVM_CILK})
-    set(EMU_PREFIX $ENV{LLVM_CILK})
+if (LLVM_CILK)
+    set(EMU_PREFIX ${LLVM_CILK})
 else()
     set(EMU_PREFIX "/usr/local/emu")
 endif()
