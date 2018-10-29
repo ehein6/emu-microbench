@@ -166,7 +166,7 @@ global_stream_add_serial_remote_spawn(global_stream_data * data)
     long grain = data->n / data->num_threads;
     // Spawn a thread on each nodelet
     for (long i = 0; i < NODELETS(); ++i) {
-        cilk_spawn serial_remote_spawn_level1(data->a[i], data->b[i], data->c[i], local_n, grain);
+        cilk_spawn_at(data->a[i]) serial_remote_spawn_level1(data->a[i], data->b[i], data->c[i], local_n, grain);
     }
     cilk_sync;
 }
@@ -186,13 +186,13 @@ recursive_remote_spawn_level2(long begin, long end, long grain, long * a, long *
 }
 
 noinline void
-recursive_remote_spawn_level1(long low, long high, long * hint, global_stream_data * data)
+recursive_remote_spawn_level1(long low, long high, global_stream_data * data)
 {
     for (;;) {
         long count = high - low;
         if (count == 1) break;
         long mid = low + count / 2;
-        cilk_spawn recursive_remote_spawn_level1(low, mid, data->a[low], data);
+        cilk_spawn_at(data->a[low]) recursive_remote_spawn_level1(low, mid, data);
         low = mid;
     }
 
@@ -206,7 +206,7 @@ recursive_remote_spawn_level1(long low, long high, long * hint, global_stream_da
 void
 global_stream_add_recursive_remote_spawn(global_stream_data * data)
 {
-    recursive_remote_spawn_level1(0, NODELETS(), data->a[0], data);
+    recursive_remote_spawn_level1(0, NODELETS(), data);
 }
 
 void
@@ -247,7 +247,7 @@ global_stream_add_serial_remote_spawn_shallow(global_stream_data * data)
         for (long j = 0; j < local_n; j += grain) {
             long begin = j;
             long end = begin + grain <= local_n ? begin + grain : local_n;
-            cilk_spawn serial_remote_spawn_level2(begin, end, a, b, c);
+            cilk_spawn_at(a) serial_remote_spawn_level2(begin, end, a, b, c);
         }
     }
     cilk_sync;
