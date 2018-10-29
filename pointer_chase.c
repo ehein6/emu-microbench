@@ -384,7 +384,7 @@ void pointer_chase_run(
     for (long trial = 0; trial < num_trials; ++trial) {
         hooks_set_attr_i64("trial", trial);
         mw_replicated_init(&data->sum, 0);
-        hooks_region_begin(name);
+        hooks_region_begin("chase_pointers");
         benchmark(data);
         double time_ms = hooks_region_end();
 #ifndef NO_VALIDATE
@@ -482,6 +482,13 @@ parse_args(int argc, char *argv[])
 
 int main(int argc, char** argv)
 {
+    // There are two regions of interest, "init" and "chase_pointers"
+    // By default, timing will be on for both
+    // Can reduce simulation time by setting HOOKS_ACTIVE_REGION=chase_pointers
+    const char* active_region = getenv("HOOKS_ACTIVE_REGION");
+    if (active_region != NULL) {
+        hooks_set_active_region(active_region);
+    }
 
     pointer_chase_args args = parse_args(argc, argv);
 
@@ -512,12 +519,12 @@ int main(int argc, char** argv)
     long mbytes_per_nodelet = mbytes / NODELETS();
     LOG("Initializing %s array with %li elements (%li MB total, %li MB per nodelet)\n",
         args.sort_mode, n, mbytes, mbytes_per_nodelet);
-    fflush(stdout);
+
     hooks_region_begin("init");
     pointer_chase_data_init(&data,
         n, args.block_size, args.num_threads, sort_mode);
     hooks_region_end();
-    LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads); fflush(stdout);
+    LOG( "Launching %s with %li threads...\n", args.spawn_mode, args.num_threads);
 
     #define RUN_BENCHMARK(X) pointer_chase_run(&data, args.spawn_mode, X, args.num_trials)
 
