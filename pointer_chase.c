@@ -339,29 +339,8 @@ void
 pointer_chase_serial_spawn(pointer_chase_data * data)
 {
     for (long i = 0; i < data->num_threads; ++i) {
-        cilk_spawn chase_pointers(data->heads[i], &data->sum);
+        cilk_spawn_at(data->heads[i]) chase_pointers(data->heads[i], &data->sum);
     }
-}
-
-void
-pointer_chase_recursive_spawn_worker(long low, long high, pointer_chase_data * data)
-{
-    for (;;) {
-        long count = high - low;
-        if (count == 1) break;
-        long mid = low + count / 2;
-        cilk_spawn pointer_chase_recursive_spawn_worker(low, mid, data);
-        low = mid;
-    }
-
-    /* Recursive base case: call worker function */
-    chase_pointers(data->heads[low], &data->sum);
-}
-
-void
-pointer_chase_recursive_spawn(pointer_chase_data * data)
-{
-    pointer_chase_recursive_spawn_worker(0, data->num_threads, data);
 }
 
 static noinline void
@@ -371,7 +350,7 @@ serial_spawn_local(void * hint, pointer_chase_data * data)
     // Spawn a thread for each list head located at this nodelet
     // Using striped indexing to avoid migrations
     for (long i = NODE_ID(); i < data->num_threads; i += NODELETS()) {
-        cilk_spawn chase_pointers(data->heads[i], &data->sum);
+        cilk_spawn_at(data->heads[i]) chase_pointers(data->heads[i], &data->sum);
     }
 }
 
