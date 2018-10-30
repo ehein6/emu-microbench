@@ -290,7 +290,10 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     }
 
     LOG("Scattering index array...\n");
-    emu_replicated_array_init(data->indices, sizeof(long), n);
+    for (long i = 1; i < NODELETS(); ++i) {
+        cilk_spawn_at(data) memcpy_long_worker(0, n, mw_get_nth(data->indices, i), mw_get_nth(data->indices, 0));
+    }
+    cilk_sync;
 
     LOG("Linking nodes together...\n");
     emu_1d_array_apply((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
