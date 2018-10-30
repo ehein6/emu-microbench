@@ -256,7 +256,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         LOG("Beginning block shuffle...\n");
 
         // Make an array with an element for each block
-        long * block_indices = malloc(sizeof(long) * num_blocks);
+        long * block_indices = mw_localmalloc(sizeof(long) * num_blocks, data);
         emu_local_for(0, num_blocks, LOCAL_GRAIN(num_blocks),
             index_init_worker, block_indices
         );
@@ -267,7 +267,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
         LOG("copy old_indices...\n");
         // Make a copy of the indices array
-        long * old_indices = malloc(sizeof(long) * n);
+        long * old_indices = mw_localmalloc(sizeof(long) * n, data);
         emu_local_for(0, n, LOCAL_GRAIN(n),
             memcpy_long_worker_var, old_indices, data->indices
         );
