@@ -257,6 +257,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
         // Make an array with an element for each block
         long * block_indices = mw_localmalloc(sizeof(long) * num_blocks, data);
+        runtime_assert(block_indices != NULL, "Failed to allocate array for block indices");
         emu_local_for(0, num_blocks, LOCAL_GRAIN(num_blocks),
             index_init_worker, block_indices
         );
@@ -268,6 +269,7 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         LOG("copy old_indices...\n");
         // Make a copy of the indices array
         long * old_indices = mw_localmalloc(sizeof(long) * n, data);
+        runtime_assert(old_indices != NULL, "Failed to allocate copy of local index array");
         emu_local_for(0, n, LOCAL_GRAIN(n),
             memcpy_long_worker_var, old_indices, data->indices
         );
@@ -278,8 +280,8 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         );
 
         // Clean up
-        free(block_indices);
-        free(old_indices);
+        mw_localfree(block_indices);
+        mw_localfree(old_indices);
     }
 
     if (do_intra_block_shuffle) {
