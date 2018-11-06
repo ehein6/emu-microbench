@@ -300,7 +300,10 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     }
 
     LOG("Linking nodes together...\n");
-    emu_1d_array_apply((long*)data->pool, data->n, GLOBAL_GRAIN_MIN(data->n, 64),
+    long grain = GLOBAL_GRAIN_MIN(data->n, 64);
+    // long nthreads = data->n / grain;
+    // LOG("Grain size %li, should spawn %li threads...\n", grain, nthreads);
+    emu_1d_array_apply((long*)data->pool, data->n, grain,
         relink_worker_1d, data
     );
 
