@@ -117,7 +117,8 @@ strided_index_init_worker(long begin, long end, va_list args)
 
 static inline node *
 get_node_ptr(pointer_chase_data* data, long i) {
-    return mw_arrayindex((long*)data->pool, (size_t)i, (size_t)data->n, sizeof(node));
+    // return mw_arrayindex((long*)data->pool, (size_t)i, (size_t)data->n, sizeof(node));
+    return data->pool[i];
 }
 
 static void
