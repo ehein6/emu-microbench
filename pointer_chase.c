@@ -281,8 +281,8 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         );
 
         // Clean up
-        mw_localfree(block_indices);
-        mw_localfree(old_indices);
+        // mw_localfree(block_indices);
+        // mw_localfree(old_indices);
     }
 
     if (do_intra_block_shuffle) {
