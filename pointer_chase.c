@@ -115,7 +115,7 @@ strided_index_init_worker(long begin, long end, va_list args)
     }
 }
 
-static inline node *
+static noinline node *
 get_node_ptr(pointer_chase_data* data, long i) {
     // return mw_arrayindex((long*)data->pool, (size_t)i, (size_t)data->n, sizeof(node));
     return data->pool[i];
@@ -195,6 +195,25 @@ intra_block_shuffle_worker(long begin, long end, va_list args)
     }
 }
 
+
+static void
+relink_serial(pointer_chase_data * data)
+{
+    long * indices = data->indices;
+    long n = data->n;
+    for (long i = 0; i < n; ++i) {
+        // String pointers together according to the index
+        long a = indices[i];
+        long b = indices[i == n - 1 ? 0 : i + 1];
+
+        node* node_a = get_node_ptr(data, a);
+        node* node_b = get_node_ptr(data, b);
+
+        node_a->next = node_b;
+        // Initialize payload
+        node_a->weight = i;
+    }
+}
 
 void
 pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long num_threads, enum sort_mode sort_mode)
@@ -281,8 +300,8 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         );
 
         // Clean up
-        // mw_localfree(block_indices);
-        // mw_localfree(old_indices);
+        mw_localfree(block_indices);
+        mw_localfree(old_indices);
     }
 
     if (do_intra_block_shuffle) {
@@ -301,12 +320,13 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     }
 
     LOG("Linking nodes together...\n");
-    long grain = GLOBAL_GRAIN_MIN(data->n, 64);
+    // long grain = GLOBAL_GRAIN_MIN(data->n, 64);
     // long nthreads = data->n / grain;
     // LOG("Grain size %li, should spawn %li threads...\n", grain, nthreads);
-    emu_1d_array_apply((long*)data->pool, data->n, grain,
-        relink_worker_1d, data
-    );
+    // emu_1d_array_apply((long*)data->pool, data->n, grain,
+    //     relink_worker_1d, data
+    // );
+    relink_serial(data);
 
     LOG("Chop\n");
     // Chop up the list so there is one chunk per thread
