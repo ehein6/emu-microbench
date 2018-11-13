@@ -349,18 +349,17 @@ void
 pointer_chase_serial_spawn(pointer_chase_data * data)
 {
     for (long i = 0; i < data->num_threads; ++i) {
-        cilk_spawn_at(data->heads[i]) chase_pointers(data->heads[i], &data->sum);
+        cilk_spawn chase_pointers(data->heads[i], &data->sum);
     }
 }
 
-static noinline void
-serial_spawn_local(void * hint, pointer_chase_data * data)
+void
+serial_spawn_local(pointer_chase_data * data)
 {
-    (void)hint;
     // Spawn a thread for each list head located at this nodelet
     // Using striped indexing to avoid migrations
     for (long i = NODE_ID(); i < data->num_threads; i += NODELETS()) {
-        cilk_spawn_at(data->heads[i]) chase_pointers(data->heads[i], &data->sum);
+        cilk_spawn chase_pointers(data->heads[i], &data->sum);
     }
 }
 
@@ -370,7 +369,7 @@ pointer_chase_serial_remote_spawn(pointer_chase_data * data)
     // Spawn a thread at each nodelet
     for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id ) {
         if (nodelet_id >= data->num_threads) { break; }
-        cilk_spawn serial_spawn_local(&data->heads[nodelet_id], data);
+        cilk_spawn_at(&data->heads[nodelet_id]) serial_spawn_local(data);
     }
 }
 
@@ -400,7 +399,9 @@ void pointer_chase_run(
 #ifndef NO_VALIDATE
         // Sum of all integers from 0 to n
         long expected_sum = (data->n * (data->n - 1)) / 2;
-        runtime_assert(emu_replicated_reduce_sum_long(&data->sum) == expected_sum, "Validation FAILED!");
+        long actual_sum = emu_replicated_reduce_sum_long(&data->sum);
+        LOG("expected_sum = %li, actual_sum = %li\n", expected_sum, actual_sum);
+        runtime_assert(actual_sum == expected_sum, "Validation FAILED!");
 #endif
         double bytes_per_second = time_ms == 0 ? 0 :
             (data->n * sizeof(node)) / (time_ms/1000);
