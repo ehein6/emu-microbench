@@ -123,17 +123,22 @@ get_node_ptr(pointer_chase_data* data, long i) {
 static void
 relink_worker_1d(long * array, long begin, long end, va_list args)
 {
-    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
-    long * indices = data->indices;
-    node** pool = data->pool;
-    long n = data->n;
+    // pointer_chase_data* data = va_arg(args, pointer_chase_data *);
+    long * indices = data.indices;
+    node** pool = data.pool;
+    long n = data.n;
     for (long i = begin; i < end; i += NODELETS()) {
         // String pointers together according to the index
         long a = indices[i];
         long b = indices[i == n - 1 ? 0 : i + 1];
 
-        node* node_a = get_node_ptr(data, a);
-        node* node_b = get_node_ptr(data, b);
+        assert(a >= 0);
+        assert(a < data.n);
+        assert(b >= 0);
+        assert(b < data.n);
+
+        node* node_a = get_node_ptr(&data, a);
+        node* node_b = get_node_ptr(&data, b);
 
         node_a->next = node_b;
         // Initialize payload
@@ -194,6 +199,14 @@ intra_block_shuffle_worker(long begin, long end, va_list args)
     }
 }
 
+void
+check_indices(long * array, long n)
+{
+    for (long i = 0; i < n; ++i) {
+        assert(array[i] >= 0);
+        assert(array[i] < n);
+    }
+}
 
 void
 pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long num_threads, enum sort_mode sort_mode)
@@ -227,6 +240,8 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
     emu_local_for(0, n, LOCAL_GRAIN(n),
         strided_index_init_worker, data->indices, (void*)n
     );
+
+    // check_indices(mw_get_nth(data->indices, 0), data->n);
 
     bool do_block_shuffle = false, do_intra_block_shuffle = false;
     switch (data->sort_mode) {
@@ -298,6 +313,11 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         long * remote_indices = mw_get_nth(data->indices, i);
         cilk_spawn_at(local_indices) memcpy(remote_indices, local_indices, sizeof(long) * n);
     }
+    cilk_sync;
+
+    // for (long i = 0; i < NODELETS(); ++i) {
+    //     check_indices(mw_get_nth(data->indices, i), data->n);
+    // }
 
     LOG("Linking nodes together...\n");
     long grain = GLOBAL_GRAIN_MIN(data->n, 64);
@@ -315,10 +335,10 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         long first_index = i * chunk_size;
         long last_index = (i+1) * chunk_size - 1;
 
-//        LOG("Thread %li will start at element %li and end at element %li\n", i,
-//            data->indices[first_index],
-//            data->indices[last_index]
-//        );
+       LOG("Thread %li will start at element %li and end at element %li\n", i,
+           data->indices[first_index],
+           data->indices[last_index]
+       );
 
         // Store a pointer for this thread's head of the list
         data->heads[i] = get_node_ptr(data, data->indices[first_index]);

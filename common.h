@@ -4,9 +4,9 @@
 #define LOG(...) fprintf(stdout, __VA_ARGS__); fflush(stdout);
 
 // HACK so we can compile with old toolchain
-#ifndef cilk_spawn_at
-#define cilk_spawn_at(X) cilk_spawn
-#endif
+// #ifndef cilk_spawn_at
+// #define cilk_spawn_at(X) cilk_spawn
+// #endif
 
 // Assert with custom error message
 static inline void
