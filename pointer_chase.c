@@ -132,10 +132,10 @@ relink_worker_1d(long * array, long begin, long end, va_list args)
         long a = indices[i];
         long b = indices[i == n - 1 ? 0 : i + 1];
 
-        assert(a >= 0);
-        assert(a < data.n);
-        assert(b >= 0);
-        assert(b < data.n);
+        // assert(a >= 0);
+        // assert(a < data.n);
+        // assert(b >= 0);
+        // assert(b < data.n);
 
         node* node_a = get_node_ptr(&data, a);
         node* node_b = get_node_ptr(&data, b);
@@ -335,10 +335,10 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
         long first_index = i * chunk_size;
         long last_index = (i+1) * chunk_size - 1;
 
-       LOG("Thread %li will start at element %li and end at element %li\n", i,
-           data->indices[first_index],
-           data->indices[last_index]
-       );
+       // LOG("Thread %li will start at element %li and end at element %li\n", i,
+       //     data->indices[first_index],
+       //     data->indices[last_index]
+       // );
 
         // Store a pointer for this thread's head of the list
         data->heads[i] = get_node_ptr(data, data->indices[first_index]);
