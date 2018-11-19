@@ -57,6 +57,7 @@ add_exe(local_sort.c)
 add_exe(bulk_copy.c)
 add_exe(scatter.c)
 add_exe(malloc_free.c)
+add_exe(spawn_rate.c)
 
 set(ENABLE_CXX_BENCHMARKS OFF
     CACHE BOOL "Build C++ benchmarks, which rely on emu_cxx_utils.")
