@@ -293,7 +293,13 @@ int main(int argc, char** argv)
 
     LOG("Running with %s\n", args.mode);
 
-    #define RUN_BENCHMARK(X) run(args.mode, X, args.num_trials)
+    hooks_set_attr_str("mode", args.mode);
+    hooks_set_attr_i64("log2_num_elements", args.log2_num_elements);
+    hooks_set_attr_i64("num_threads", args.num_threads);
+    hooks_set_attr_i64("num_nodelets", NODELETS());
+    hooks_set_attr_i64("num_bytes_per_element", sizeof(long));
+
+#define RUN_BENCHMARK(X) run(args.mode, X, args.num_trials)
 
     if (!strcmp(args.mode, "serial")) {
         RUN_BENCHMARK(do_serial);
