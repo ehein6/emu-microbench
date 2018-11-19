@@ -111,7 +111,7 @@ serial_spawn_heavy_worker(long * begin, long * end, long grain)
 
 // Worker used by emu_c_utils
 noinline void
-library_worker(long begin, long end, va_list args)
+library_inline_worker(long begin, long end, va_list args)
 {
     // NOTE begin and end are passed as indices, not pointers
     long* array = va_arg(args, long*);
@@ -119,6 +119,29 @@ library_worker(long begin, long end, va_list args)
     long * last = array + end;
     DO_WORK(first, last);
 }
+
+noinline void
+library_light_worker(long begin, long end, va_list args)
+{
+    // NOTE begin and end are passed as indices, not pointers
+    long* array = va_arg(args, long*);
+    long * first = array + begin;
+    long * last = array + end;
+    light_worker(first, last);
+}
+
+noinline void
+library_heavy_worker(long begin, long end, va_list args)
+{
+    // NOTE begin and end are passed as indices, not pointers
+    long* array = va_arg(args, long*);
+    long * first = array + begin;
+    long * last = array + end;
+    heavy_worker(first, last);
+}
+
+
+
 
 void
 init(long n, long num_threads)
@@ -206,10 +229,23 @@ do_recursive_spawn_heavy() {
 
 // Do the work with an emu_c_utils library call
 noinline void
-do_library()
+do_library_inline()
 {
-    emu_local_for(0, data.n, data.n / data.num_threads, library_worker, data.array);
+    emu_local_for(0, data.n, data.n / data.num_threads, library_inline_worker, data.array);
 }
+
+noinline void
+do_library_light()
+{
+    emu_local_for(0, data.n, data.n / data.num_threads, library_light_worker, data.array);
+}
+
+noinline void
+do_library_heavy()
+{
+    emu_local_for(0, data.n, data.n / data.num_threads, library_heavy_worker, data.array);
+}
+
 
 
 void run(const char * name, void (*benchmark)(), long num_trials)
@@ -275,8 +311,12 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(do_recursive_spawn_light);
     } else if (!strcmp(args.mode, "recursive_spawn_heavy")) {
         RUN_BENCHMARK(do_recursive_spawn_heavy);
-    } else if (!strcmp(args.mode, "library")) {
-        RUN_BENCHMARK(do_library);
+    } else if (!strcmp(args.mode, "library_inline")) {
+        RUN_BENCHMARK(do_library_inline);
+    } else if (!strcmp(args.mode, "library_light")) {
+        RUN_BENCHMARK(do_library_light);
+    } else if (!strcmp(args.mode, "library_heavy")) {
+        RUN_BENCHMARK(do_library_heavy);
     } else {
         LOG("Mode %s not implemented!", args.mode);
     }
