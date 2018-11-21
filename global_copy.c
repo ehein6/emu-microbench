@@ -97,7 +97,7 @@ global_copy_cilk_for(global_copy_data * data)
 }
 
 noinline void
-recursive_copy_worker(long begin, long end, global_copy_data *data)
+recursive_spawn_copy_worker(long begin, long end, global_copy_data *data)
 {
     long block_sz = data->n / NODELETS();
     for (long i = begin; i < end; ++i) {
@@ -126,7 +126,7 @@ global_copy_serial_spawn(global_copy_data * data)
     for (long i = 0; i < data->n; i += grain) {
         long begin = i;
         long end = begin + grain <= data->n ? begin + grain : data->n;
-        cilk_spawn recursive_spawn_copyworker(begin, end, data);
+        cilk_spawn recursive_spawn_copy_worker(begin, end, data);
     }
     cilk_sync;
 }
