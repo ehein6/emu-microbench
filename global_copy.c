@@ -257,7 +257,7 @@ void global_copy_run(
         benchmark(data);
         double time_ms = hooks_region_end();
         double bytes_per_second = time_ms == 0 ? 0 :
-            (data->n * sizeof(long) * 3) / (time_ms/1000);
+            (data->n * sizeof(long) * 2) / (time_ms/1000);
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 }
