@@ -58,6 +58,7 @@ add_exe(bulk_copy.c)
 add_exe(scatter.c)
 add_exe(malloc_free.c)
 add_exe(spawn_rate.c)
+add_exe(hot_range.c)
 
 set(ENABLE_CXX_BENCHMARKS OFF
     CACHE BOOL "Build C++ benchmarks, which rely on emu_cxx_utils.")
