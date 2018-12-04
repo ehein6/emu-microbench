@@ -160,22 +160,20 @@ check_value(long i, long actual, long expected)
 }
 
 void
-hot_range_validate(hot_range_data * data)
+validate_worker(long * array, long begin, long end, va_list args)
 {
-    long n = data->n;
-    long * array = data->array;
-    long hot_range_begin = data->offset;
-    long hot_range_end = data->offset + data->length;
+    long n = data.n;
+    long hot_range_begin = data.offset;
+    long hot_range_end = data.offset + data.length;
     long hot_range_length = hot_range_end - hot_range_begin;
 
-    // TODO parallelize this loop
-    for (long i = 0; i < n; ++i) {
+    for (long i = begin; i < end; i += NODELETS()) {
         long expected_value;
         if (i < hot_range_begin || i >= hot_range_end) {
             // Values outside the hot range should not be touched
             expected_value = 0;
         } else  {
-            if (data->op_mode == OP_REMOTE_WRITE) {
+            if (data.op_mode == OP_REMOTE_WRITE) {
                 // Remote writes don't accumulate, each hot value is 1
                 expected_value = 1;
             } else {
@@ -190,6 +188,12 @@ hot_range_validate(hot_range_data * data)
         long physical_index = transform_1d_index(i, n);
         check_value(i, array[physical_index], expected_value);
     }
+}
+
+void
+hot_range_validate(hot_range_data * data)
+{
+    emu_1d_array_apply(data->array, data->n, GLOBAL_GRAIN_MIN(data->n, 128), validate_worker);
 }
 
 void hot_range_run(hot_range_data * data, long num_trials)
