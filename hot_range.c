@@ -38,35 +38,6 @@ typedef struct hot_range_data {
 
 replicated hot_range_data data;
 
-/*
-static inline node *
-get_node_ptr(hot_range_data* data, long i) {
-    return mw_arrayindex((long*)data->pool, (size_t)i, (size_t)data->n, sizeof(node));
-}
-
-static void
-relink_worker_1d(long * array, long begin, long end, va_list args)
-{
-    hot_range_data* data = va_arg(args, hot_range_data *);
-    long * indices = data->indices;
-    node** pool = data->pool;
-    long n = data->n;
-    for (long i = begin; i < end; i += NODELETS()) {
-        // String pointers together according to the index
-        long a = indices[i];
-        long b = indices[i == n - 1 ? 0 : i + 1];
-
-        node* node_a = get_node_ptr(data, a);
-        node* node_b = get_node_ptr(data, b);
-
-        node_a->next = node_b;
-        // Initialize payload
-        node_a->weight = i;
-    }
-}
-*/
-
-
 void
 clear_array_worker(long * array, long begin, long end, va_list args)
 {
@@ -172,17 +143,6 @@ hot_range_launch(hot_range_data * data)
     emu_1d_array_apply(data->array, data->n, grain, worker_ptr);
 }
 
-//void
-//hot_range_chunked_atomic_add_worker(emu_chunked_array * array, long begin, long end)
-//{
-//    emu_chunked_array * indices = data.indices;
-//    for (long i = begin; i < end; i += NODELETS()) {
-//        long index = *(long*)emu_chunked_array_index(indices, i);
-//        long * target = emu_chunked_array_index(array, index);
-//        ATOMIC_ADD(target, 1);
-//    }
-//}
-
 void
 hot_range_data_deinit(hot_range_data * data)
 {
@@ -248,7 +208,6 @@ void hot_range_run(hot_range_data * data, long num_trials)
         LOG("%3.2f million operations per second\n", ops_per_second / (1000000));
     }
 }
-
 
 static const struct option long_options[] = {
     {"log2_num_elements" , required_argument},
