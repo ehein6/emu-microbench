@@ -81,11 +81,34 @@ hot_range_clear_array(hot_range_data * data)
     emu_1d_array_apply(data->array, data->n, GLOBAL_GRAIN_MIN(data->n, 128), clear_array_worker);
 }
 
+static inline long
+transform_1d_index(long i, long n)
+{
+    return ((i * NODELETS()) & (n-1)) + ((i * NODELETS()) >> PRIORITY(n));
+}
+
 void
-hot_range_data_init(hot_range_data * data, long n, long offset, long length, long num_threads)
+index_init_worker(long * indices, long begin, long end, va_list args) {
+    const long n = data.n;
+    const long offset = data.offset;
+    const long length = data.length;
+    const long num_nodelets = NODELETS();
+    for (long i = begin; i < end; i += NODELETS()) {
+        // Map onto a 'length'-sized chunk of the array, 'offset' elements from the start
+        // If offset + length > n, the hot range will be split between the first and last nodelets
+        long target = (offset + (i % length)) % n;
+        // Transform to account for striped indexing
+        target = transform_1d_index(target, n);
+        indices[i] = target;
+    }
+}
+
+void
+hot_range_data_init(hot_range_data * data, long n, enum op_mode op_mode, long offset, long length, long num_threads)
 {
     // Initialize parameters
     mw_replicated_init(&data->n, n);
+    mw_replicated_init((long*)&data->op_mode, op_mode);
     mw_replicated_init(&data->offset, offset);
     mw_replicated_init(&data->length, length);
     mw_replicated_init(&data->num_threads, num_threads);
@@ -98,10 +121,9 @@ hot_range_data_init(hot_range_data * data, long n, long offset, long length, lon
     mw_replicated_init((long*)&data->indices, (long)indices);
 
     // Set up the list
-    // TODO parallelize this loop
-    for (long i = 0; i < n; ++i) {
-        indices[i] = (offset + (i % length)) % n;
-    }
+    emu_1d_array_apply(data->indices, data->n, GLOBAL_GRAIN_MIN(data->n, 128),
+        index_init_worker
+    );
 
 #ifndef NO_VALIDATE
     // Initialize the array with zeros
@@ -172,7 +194,7 @@ void
 check_value(long i, long actual, long expected)
 {
     if (actual != expected) {
-        LOG("Error in validation, array[%li] was %li, expected %li", i, actual, expected);
+        LOG("Error in validation, array[%li] was %li, expected %li\n", i, actual, expected);
         exit(1);
     }
 }
@@ -200,12 +222,13 @@ hot_range_validate(hot_range_data * data)
                 // Each value will have been incremented n / length times
                 expected_value = n / hot_range_length;
                 // If it doesn't divide evenly, some items will be incremented more than others
-                if ((i - hot_range_begin) < n % hot_range_length) {
+                if ((i - hot_range_begin) < (n % hot_range_length)) {
                     expected_value += 1;
                 }
             }
         }
-        check_value(i, array[i], expected_value);
+        long physical_index = transform_1d_index(i, n);
+        check_value(i, array[physical_index], expected_value);
     }
 }
 
@@ -345,7 +368,7 @@ int main(int argc, char** argv)
     LOG("Initializing array...\n")
 
     hooks_region_begin("init");
-    hot_range_data_init(&data,n, offset, length, args.num_threads);
+    hot_range_data_init(&data, n, op_mode, offset, length, args.num_threads);
     hooks_region_end();
 
     LOG("Spawning %li threads to do a total of 2^%li %s operations on an array of 2^%li elements with an offset of 2^%li...\n",
