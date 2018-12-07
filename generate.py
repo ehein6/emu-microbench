@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -9,6 +9,22 @@ import argparse
 import json
 import textwrap
 import re
+import unicodedata
+
+# https://stackoverflow.com/a/295466/2570605
+def slugify(value, allow_unicode=False):
+    """
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces to hyphens.
+    Remove characters that aren't alphanumerics, underscores, or hyphens.
+    Convert to lowercase. Also strip leading and trailing whitespace.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize('NFKC', value)
+    else:
+        value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
+    value = re.sub(r'[^\w\s-]', '', value).strip().lower()
+    return re.sub(r'[-\s]+', '-', value)
 
 class Args(dict):
     def __getattr__(self, key):
@@ -16,7 +32,7 @@ class Args(dict):
     def __setattr__(self, key, value):
         self[key] = value
     def __str__(self):
-        return ".".join(str(v) for v in self.values())
+        return ".".join(slugify(v) for v in list(self.values()))
 
 def as_list(x):
     return x if type(x) is list else [x]
@@ -30,8 +46,8 @@ def iterSuite(suite):
     """
     # Single suite
     if isinstance(suite, dict):
-        keys = suite.keys()
-        values = [as_list(v) for v in suite.itervalues()]
+        keys = list(suite.keys())
+        values = [as_list(v) for v in suite.values()]
         for args in itertools.product(*values):
             yield Args({k:v for k, v in zip(keys, args)})
     # List of suites
@@ -47,7 +63,7 @@ def check_local_config(local_config):
         return
 
     try:
-        for benchmark, path in local_config["binaries"].iteritems():
+        for benchmark, path in local_config["binaries"].items():
             if not os.path.isfile(path):
                 raise Exception("Invalid path for {} executable: {}".format(benchmark, path))
 
@@ -124,9 +140,11 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
     # Emu profiler command line
     elif "emusim_profile" in local_config["platform"]:
         template += """
-        {emusim_profile_exe} \\
+        {emusim_profile_exe}    \\
         {outdir}/profile.{name} \\
-        {exe} \\"""
+        {emusim_flags}          \\
+        --                      \\
+        {exe}                   \\"""
 
     # Emu simulator command line
     elif "emusim" in local_config["platform"]:
