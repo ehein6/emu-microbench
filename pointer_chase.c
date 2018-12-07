@@ -123,17 +123,17 @@ get_node_ptr(pointer_chase_data* data, long i) {
 static void
 relink_worker_1d(long * array, long begin, long end, va_list args)
 {
-    // pointer_chase_data* data = va_arg(args, pointer_chase_data *);
-    long * indices = data.indices;
-    node** pool = data.pool;
-    long n = data.n;
+    pointer_chase_data* data = va_arg(args, pointer_chase_data *);
+    long * indices = data->indices;
+    node** pool = data->pool;
+    long n = data->n;
     for (long i = begin; i < end; i += NODELETS()) {
         // String pointers together according to the index
         long a = indices[i];
         long b = indices[i == n - 1 ? 0 : i + 1];
 
-        node* node_a = get_node_ptr(&data, a);
-        node* node_b = get_node_ptr(&data, b);
+        node* node_a = get_node_ptr(data, a);
+        node* node_b = get_node_ptr(data, b);
 
         node_a->next = node_b;
         // Initialize payload
@@ -214,10 +214,10 @@ pointer_chase_data_init(pointer_chase_data * data, long n, long block_size, long
 
     LOG("Replicating pointers...\n");
     // Replicate pointers to all other nodelets
-    data = mw_get_nth(data, 0);
+    pointer_chase_data * data0 = mw_get_nth(data, 0);
     for (long i = 1; i < NODELETS(); ++i) {
         pointer_chase_data * remote_data = mw_get_nth(data, i);
-        memcpy(remote_data, data, sizeof(pointer_chase_data));
+        memcpy(remote_data, data0, sizeof(pointer_chase_data));
     }
 
     // Initialize with striped index pattern (i.e. 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15)
