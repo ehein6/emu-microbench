@@ -14,7 +14,8 @@
 enum op_mode {
     OP_REMOTE_WRITE,
     OP_REMOTE_ADD,
-    OP_ATOMIC_ADD
+    OP_ATOMIC_ADD,
+    OP_ATOMIC_CAS,
 };
 
 typedef struct hot_range_data {
@@ -130,12 +131,27 @@ hot_range_atomic_add_worker(long * array, long begin, long end, va_list args)
 }
 
 void
+hot_range_atomic_cas_worker(long * array, long begin, long end, va_list args)
+{
+    long * indices = data.indices;
+    for (long i = begin; i < end; i += NODELETS()) {
+        long oldval, newval;
+        long * target = &array[indices[i]];
+        do {
+            oldval = *target;
+            newval = oldval + 1;
+        } while (ATOMIC_CAS(target, newval, oldval) != oldval);
+    }
+}
+
+void
 hot_range_launch(hot_range_data * data)
 {
     long grain = data->n / data->num_threads;
     void (*worker_ptr)(long *, long, long, va_list);
     switch (data->op_mode) {
         case OP_ATOMIC_ADD: worker_ptr = hot_range_atomic_add_worker; break;
+        case OP_ATOMIC_CAS: worker_ptr = hot_range_atomic_cas_worker; break;
         case OP_REMOTE_ADD: worker_ptr = hot_range_remote_add_worker; break;
         case OP_REMOTE_WRITE: worker_ptr = hot_range_remote_write_worker; break;
         default: assert(0);
@@ -311,6 +327,8 @@ int main(int argc, char** argv)
         op_mode = OP_REMOTE_ADD;
     } else if (!strcmp(args.op_mode, "ATOMIC_ADD")) {
         op_mode = OP_ATOMIC_ADD;
+    } else if (!strcmp(args.op_mode, "ATOMIC_CAS")) {
+        op_mode = OP_ATOMIC_CAS;
     } else if (!strcmp(args.op_mode, "REMOTE_WRITE")) {
         op_mode = OP_REMOTE_WRITE;
     } else {
