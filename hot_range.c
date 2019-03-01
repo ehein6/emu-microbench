@@ -288,10 +288,10 @@ parse_args(int argc, char *argv[])
             exit(1);
         }
     }
-    if (args.log2_num_elements <= 0) { LOG( "log2_num_elements must be > 0"); exit(1); }
+    if (args.log2_num_elements < 0) { LOG( "log2_num_elements must be >= 0"); exit(1); }
     if (args.num_threads <= 0) { LOG( "num_threads must be > 0"); exit(1); }
     if (args.log2_offset <  0) { LOG( "log2_offset must be >= 0"); exit(1); }
-    if (args.log2_length <= 0) { LOG( "log2_length must be > 0"); exit(1); }
+    if (args.log2_length <  0) { LOG( "log2_length must be >= 0"); exit(1); }
     if (args.log2_offset >= args.log2_num_elements) { LOG( "log2_offset must be < log2_num_elements"); exit(1); }
     if (args.log2_length >  args.log2_num_elements) { LOG( "log2_length must be <= log2_num_elements"); exit(1); }
     return args;
