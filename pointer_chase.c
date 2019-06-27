@@ -499,6 +499,8 @@ int main(int argc, char** argv)
     const char* active_region = getenv("HOOKS_ACTIVE_REGION");
     if (active_region != NULL) {
         hooks_set_active_region(active_region);
+    } else {
+        hooks_set_active_region("chase_pointers");
     }
 
     pointer_chase_args args = parse_args(argc, argv);
