@@ -61,7 +61,7 @@ global_stream_deinit(global_stream_data * data)
     emu_chunked_array_replicated_deinit(&data->array_c);
 }
 
-static noinline void
+static void
 global_stream_validate_worker(emu_chunked_array * array, long begin, long end, va_list args)
 {
     long * c = emu_chunked_array_index(array, begin);
@@ -102,7 +102,7 @@ global_stream_add_cilk_for(global_stream_data * data)
     }
 }
 
-noinline void
+void
 recursive_spawn_add_worker(long begin, long end, global_stream_data *data)
 {
     long block_sz = data->n / NODELETS();
@@ -111,7 +111,7 @@ recursive_spawn_add_worker(long begin, long end, global_stream_data *data)
     }
 }
 
-noinline void
+void
 recursive_spawn_add(long begin, long end, long grain, global_stream_data *data)
 {
     RECURSIVE_CILK_SPAWN(begin, end, grain, recursive_spawn_add, data);
@@ -137,7 +137,7 @@ global_stream_add_serial_spawn(global_stream_data * data)
     cilk_sync;
 }
 
-noinline void
+void
 serial_remote_spawn_level2(long begin, long end, long * a, long * b, long * c)
 {
     for (long i = begin; i < end; ++i) {
@@ -145,7 +145,7 @@ serial_remote_spawn_level2(long begin, long end, long * a, long * b, long * c)
     }
 }
 
-noinline void
+void
 serial_remote_spawn_level1(long * a, long * b, long * c, long n, long grain)
 {
     for (long i = 0; i < n; i += grain) {
@@ -171,7 +171,7 @@ global_stream_add_serial_remote_spawn(global_stream_data * data)
     cilk_sync;
 }
 
-noinline void
+void
 recursive_remote_spawn_level2_worker(long begin, long end, long * a, long * b, long * c)
 {
     for (long i = begin; i < end; ++i) {
@@ -179,13 +179,13 @@ recursive_remote_spawn_level2_worker(long begin, long end, long * a, long * b, l
     }
 }
 
-noinline void
+void
 recursive_remote_spawn_level2(long begin, long end, long grain, long * a, long * b, long * c)
 {
     RECURSIVE_CILK_SPAWN(begin, end, grain, recursive_remote_spawn_level2, a, b, c);
 }
 
-noinline void
+void
 recursive_remote_spawn_level1(long low, long high, global_stream_data * data)
 {
     for (;;) {
