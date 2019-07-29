@@ -21,7 +21,6 @@
 typedef struct spawn_rate_data {
     long * array;
     long n;
-    long num_threads;
 } spawn_rate_data;
 
 replicated spawn_rate_data data;
@@ -144,18 +143,17 @@ library_heavy_worker(long begin, long end, va_list args)
 
 
 void
-init(long n, long num_threads)
+init(long n)
 {
     data.n = n;
-    data.num_threads = num_threads;
-    data.array = malloc(n * sizeof(long));
+    data.array = mw_localmalloc(n * sizeof(long), &n);
     assert(data.array);
 }
 
 void
 deinit()
 {
-    free(data.array);
+    mw_localfree(data.array);
 }
 
 void
@@ -203,49 +201,48 @@ do_heavy()
 
 noinline void
 do_serial_spawn_light() {
-    serial_spawn_light_worker(data.array, data.array + data.n, data.n / data.num_threads);
+    serial_spawn_light_worker(data.array, data.array + data.n, 1);
 }
 
 noinline void
 do_serial_spawn_heavy() {
-    serial_spawn_heavy_worker(data.array, data.array + data.n, data.n / data.num_threads);
+    serial_spawn_heavy_worker(data.array, data.array + data.n, 1);
 }
 
 noinline void
 do_recursive_spawn_inline() {
-    recursive_spawn_inline_worker(data.array, data.array + data.n, data.n / data.num_threads);
+    recursive_spawn_inline_worker(data.array, data.array + data.n, 1);
 }
 
 
 noinline void
 do_recursive_spawn_light() {
-    recursive_spawn_light_worker(data.array, data.array + data.n, data.n / data.num_threads);
+    recursive_spawn_light_worker(data.array, data.array + data.n, 1);
 }
 
 noinline void
 do_recursive_spawn_heavy() {
-    recursive_spawn_heavy_worker(data.array, data.array + data.n, data.n / data.num_threads);
+    recursive_spawn_heavy_worker(data.array, data.array + data.n, 1);
 }
 
 // Do the work with an emu_c_utils library call
 noinline void
 do_library_inline()
 {
-    emu_local_for(0, data.n, data.n / data.num_threads, library_inline_worker, data.array);
+    emu_local_for(0, data.n, 1, library_inline_worker, data.array);
 }
 
 noinline void
 do_library_light()
 {
-    emu_local_for(0, data.n, data.n / data.num_threads, library_light_worker, data.array);
+    emu_local_for(0, data.n, 1, library_light_worker, data.array);
 }
 
 noinline void
 do_library_heavy()
 {
-    emu_local_for(0, data.n, data.n / data.num_threads, library_heavy_worker, data.array);
+    emu_local_for(0, data.n, 1, library_heavy_worker, data.array);
 }
-
 
 
 void run(const char * name, void (*benchmark)(), long num_trials)
@@ -255,9 +252,9 @@ void run(const char * name, void (*benchmark)(), long num_trials)
         hooks_region_begin(name);
         benchmark();
         double time_ms = hooks_region_end();
-        double bytes_per_second = time_ms == 0 ? 0 :
-            (data.n * sizeof(long)) / (time_ms/1000);
-        LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
+        double threads_per_second = time_ms == 0 ? 0 :
+            data.n / (time_ms/1000);
+        LOG("%3.2f million threads/s\n", threads_per_second / (1000000));
     }
 }
 
@@ -265,39 +262,34 @@ int main(int argc, char** argv)
 {
     struct {
         const char* mode;
-        long log2_num_elements;
-        long num_threads;
+        long log2_num_threads;
         long num_trials;
     } args;
 
-    if (argc != 5) {
-        LOG("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
+    if (argc != 4) {
+        LOG("Usage: %s mode log2_num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
-        args.log2_num_elements = atol(argv[2]);
-        args.num_threads = atol(argv[3]);
-        args.num_trials = atol(argv[4]);
+        args.log2_num_threads = atol(argv[2]);
+        args.num_trials = atol(argv[3]);
 
-        if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
+        if (args.log2_num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
         if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
     }
 
-    long n = 1L << args.log2_num_elements;
-    LOG("Initializing array with %li elements each (%li MiB)\n",
+    long n = 1L << args.log2_num_threads;
+    LOG("Initializing array with %li elements (%li MiB)\n",
         n, (n * sizeof(long)) / (1024*1024)); fflush(stdout);
 
-    init(n, args.num_threads);
+    init(n);
     clear();
 
     LOG("Running with %s\n", args.mode);
 
     hooks_set_attr_str("mode", args.mode);
-    hooks_set_attr_i64("log2_num_elements", args.log2_num_elements);
-    hooks_set_attr_i64("num_threads", args.num_threads);
+    hooks_set_attr_i64("log2_num_threads", args.log2_num_threads);
     hooks_set_attr_i64("num_nodelets", NODELETS());
-    hooks_set_attr_i64("num_bytes_per_element", sizeof(long));
 
 #define RUN_BENCHMARK(X) run(args.mode, X, args.num_trials)
 
