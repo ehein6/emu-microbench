@@ -52,7 +52,7 @@ recursive_spawn_inline_worker(long * begin, long * end, long grain)
 {
     for (;;) {
         long count = end - begin;
-        if (count < grain) break;
+        if (count <= grain) break;
         long * mid = begin + count / 2;
         cilk_spawn recursive_spawn_inline_worker(begin, mid, grain);
         begin = mid;
@@ -66,7 +66,7 @@ recursive_spawn_light_worker(long * begin, long * end, long grain)
 {
     for (;;) {
         long count = end - begin;
-        if (count < grain) break;
+        if (count <= grain) break;
         long * mid = begin + count / 2;
         cilk_spawn recursive_spawn_light_worker(begin, mid, grain);
         begin = mid;
@@ -80,7 +80,7 @@ recursive_spawn_heavy_worker(long * begin, long * end, long grain)
 {
     for (;;) {
         long count = end - begin;
-        if (count < grain) break;
+        if (count <= grain) break;
         long * mid = begin + count / 2;
         cilk_spawn recursive_spawn_heavy_worker(begin, mid, grain);
         begin = mid;
