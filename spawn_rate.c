@@ -180,46 +180,60 @@ validate()
     }
 }
 
+// Do all the writes within a single function
 noinline void
-do_serial()
+do_inline()
 {
     DO_WORK(data.array, data.array + data.n);
 }
 
+// Call light_worker on each element
 noinline void
 do_light()
 {
-    light_worker(data.array, data.array + data.n);
+    long * begin = data.array;
+    long * end = data.array + data.n;
+    for (long *i = begin; i < end; ++i) {
+        light_worker(i, i + 1);
+    }
 }
 
-// Delegate to heavy_worker
+// Call heavy_worker on each element
 noinline void
 do_heavy()
 {
-    heavy_worker(data.array, data.array + data.n);
+    long * begin = data.array;
+    long * end = data.array + data.n;
+    for (long *i = begin; i < end; ++i) {
+        heavy_worker(i, i + 1);
+    }
 }
 
+// Spawn light_worker for each element
 noinline void
 do_serial_spawn_light() {
     serial_spawn_light_worker(data.array, data.array + data.n, 1);
 }
 
+// Spawn heavy_worker for each element
 noinline void
 do_serial_spawn_heavy() {
     serial_spawn_heavy_worker(data.array, data.array + data.n, 1);
 }
 
+// Recursive spawn tree, leaf threads do work inline
 noinline void
 do_recursive_spawn_inline() {
     recursive_spawn_inline_worker(data.array, data.array + data.n, 1);
 }
 
-
+// Recursive spawn tree, leaf threads call light_worker
 noinline void
 do_recursive_spawn_light() {
     recursive_spawn_light_worker(data.array, data.array + data.n, 1);
 }
 
+// Recursive spawn tree, leaf threads call heavy_worker
 noinline void
 do_recursive_spawn_heavy() {
     recursive_spawn_heavy_worker(data.array, data.array + data.n, 1);
@@ -245,84 +259,80 @@ do_library_heavy()
 }
 
 
-void run(const char * name, void (*benchmark)(), long num_trials)
+double
+run_baseline(const char * name, void (*benchmark)(), long num_trials)
 {
+    double total_time_ms = 0;
     for (long trial = 0; trial < num_trials; ++trial) {
         hooks_set_attr_i64("trial", trial);
         hooks_region_begin(name);
         benchmark();
-        double time_ms = hooks_region_end();
-        double threads_per_second = time_ms == 0 ? 0 :
-            data.n / (time_ms/1000);
-        LOG("%3.2f million threads/s\n", threads_per_second / (1000000));
+        total_time_ms += hooks_region_end();
     }
+    return total_time_ms / num_trials;
+}
+
+void
+run_spawn(double serial_time_ms, const char * name, void (*benchmark)(), long num_trials)
+{
+    // Run the benchmark
+    double time_ms = run_baseline(name, benchmark, num_trials);
+    // Subtract the time taken to do the work serially
+    double spawn_time_ms = time_ms - serial_time_ms;
+    // Compute spawn rate in threads per second
+    double threads_per_second = spawn_time_ms == 0 ? 0 :
+        data.n / (spawn_time_ms/1000);
+    // Print result
+    LOG("%s: %3.2f million threads/s\n", name, threads_per_second / (1000000));
 }
 
 int main(int argc, char** argv)
 {
     struct {
-        const char* mode;
         long log2_num_threads;
         long num_trials;
     } args;
 
-    if (argc != 4) {
-        LOG("Usage: %s mode log2_num_threads num_trials\n", argv[0]);
+    if (argc != 3) {
+        LOG("Usage: %s log2_num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
-        args.mode = argv[1];
-        args.log2_num_threads = atol(argv[2]);
-        args.num_trials = atol(argv[3]);
+        args.log2_num_threads = atol(argv[1]);
+        args.num_trials = atol(argv[2]);
 
         if (args.log2_num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
         if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
     }
 
-    long n = 1L << args.log2_num_threads;
+    long n = 1UL << args.log2_num_threads;
     LOG("Initializing array with %li elements (%li MiB)\n",
         n, (n * sizeof(long)) / (1024*1024)); fflush(stdout);
 
     init(n);
+    // TODO if validation desired, need to clear after each trial
     clear();
 
-    LOG("Running with %s\n", args.mode);
-
-    hooks_set_attr_str("mode", args.mode);
     hooks_set_attr_i64("log2_num_threads", args.log2_num_threads);
     hooks_set_attr_i64("num_nodelets", NODELETS());
 
-#define RUN_BENCHMARK(X) run(args.mode, X, args.num_trials)
+    double inline_time_ms = run_baseline("inline", do_inline, args.num_trials);
+    double light_time_ms = run_baseline("light", do_light, args.num_trials);
+    double heavy_time_ms = run_baseline("heavy", do_heavy, args.num_trials);
 
-    if (!strcmp(args.mode, "serial")) {
-        RUN_BENCHMARK(do_serial);
-    } else if (!strcmp(args.mode, "light_worker")) {
-        RUN_BENCHMARK(do_light);
-    } else if (!strcmp(args.mode, "heavy_worker")) {
-        RUN_BENCHMARK(do_heavy);
-    } else if (!strcmp(args.mode, "serial_spawn_light")) {
-        RUN_BENCHMARK(do_serial_spawn_light);
-    } else if (!strcmp(args.mode, "serial_spawn_heavy")) {
-        RUN_BENCHMARK(do_serial_spawn_heavy);
-    } else if (!strcmp(args.mode, "recursive_spawn_inline")) {
-        RUN_BENCHMARK(do_recursive_spawn_inline);
-    } else if (!strcmp(args.mode, "recursive_spawn_light")) {
-        RUN_BENCHMARK(do_recursive_spawn_light);
-    } else if (!strcmp(args.mode, "recursive_spawn_heavy")) {
-        RUN_BENCHMARK(do_recursive_spawn_heavy);
-    } else if (!strcmp(args.mode, "library_inline")) {
-        RUN_BENCHMARK(do_library_inline);
-    } else if (!strcmp(args.mode, "library_light")) {
-        RUN_BENCHMARK(do_library_light);
-    } else if (!strcmp(args.mode, "library_heavy")) {
-        RUN_BENCHMARK(do_library_heavy);
-    } else {
-        LOG("Mode %s not implemented!", args.mode);
-    }
-#ifndef NO_VALIDATE
-    LOG("Validating results...");
-    validate();
-    LOG("OK\n");
-#endif
+#define RUN_BENCHMARK(SERIAL_TIME, NAME) \
+run_spawn(SERIAL_TIME, #NAME, do_##NAME, args.num_trials)
+
+    RUN_BENCHMARK(light_time_ms, serial_spawn_light);
+    RUN_BENCHMARK(heavy_time_ms, serial_spawn_heavy);
+
+    RUN_BENCHMARK(inline_time_ms, recursive_spawn_inline);
+    RUN_BENCHMARK(light_time_ms, recursive_spawn_light);
+    RUN_BENCHMARK(heavy_time_ms, recursive_spawn_heavy);
+
+    RUN_BENCHMARK(inline_time_ms, library_inline);
+    RUN_BENCHMARK(light_time_ms, library_light);
+    RUN_BENCHMARK(heavy_time_ms, library_heavy);
+
     deinit();
     return 0;
 }
