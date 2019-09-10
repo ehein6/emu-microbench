@@ -96,7 +96,9 @@ void
 global_stream_add_cilk_for(global_stream_data * data)
 {
     long block_sz = data->n / NODELETS();
+#ifndef NO_GRAINSIZE_COMPUTE
     #pragma cilk grainsize = data->n / data->num_threads
+#endif
     cilk_for (long i = 0; i < data->n; ++i) {
         INDEX(data->c, block_sz, i) = INDEX(data->a, block_sz, i) + INDEX(data->b, block_sz, i);
     }
