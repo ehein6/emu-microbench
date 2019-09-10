@@ -41,6 +41,13 @@ if (NOT ENABLE_VALIDATION)
     add_definitions("-DNO_VALIDATE")
 endif()
 
+set(ENABLE_GRAINSIZE_COMPUTATION "OFF"
+  CACHE BOOL "Allow pragma grainsize expression. Tapir toolchain does not currently allow this, grainsize must be integral constant."
+  )
+if (NOT ENABLE_GRAINSIZE_COMPUTATION)
+  add_definitions("-DNO_GRAINSIZE_COMPUTE")
+endif()
+
 function(add_exe filename)
     string(REGEX REPLACE "\\.[^.]*$" "" name ${filename})
     add_executable(${name} ${filename})
