@@ -1,19 +1,19 @@
 {
     "emusim": {
         "binaries": {
-            "ping_pong":        "/home/mcmahon/emu-microbench/build-hw/ping_pong.mwx"
+            "ping_pong":        "ping_pong.mwx"
         },
         "emusim_exe": "nice  /usr/local/emu/bin/emusim.x "
     },
     "emusim_profile": {
         "binaries": {
-            "ping_pong":        "/home/mcmahon/emu-microbench/build-hw/ping_pong.mwx"
+            "ping_pong":        "ping_pong.mwx"
         },
         "emusim_profile_exe": "nice /usr/local/emu/bin/emusim_profile.sh"
     },
     "emuchick": {
         "binaries": {
-            "ping_pong":     "/home/mcmahon/emu-microbench/build-hw/ping_pong.mwx"
+            "ping_pong":     "ping_pong.mwx"
         }
     }
 
