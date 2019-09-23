@@ -178,6 +178,13 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
         &>> $LOGFILE
         """
 
+    elif args.benchmark == "ping_pong":
+        # Generate the benchmark command line
+        template += """
+        {mode} {log2_num_migrations} {num_threads} {num_trials} \\
+        &>> $LOGFILE
+        """
+
     else:
         raise Exception("Unsupported benchmark {}".format(args.benchmark))
 
