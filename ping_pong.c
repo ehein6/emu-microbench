@@ -71,6 +71,24 @@ void ping_pong_spawn_all(long src_nlet, long dst_nlet)
   }
 }
 
+// function to gather output, must be noinline
+noinline void gather(long ntr)
+{
+  printf("source dest cycles avg_time_ms million_mps latency_us\n");
+  for (long i = 0; i < NODELETS(); ++i) {
+    for (long j = 0; j < NODELETS(); ++j) {
+      if (results[i][j] > 0) {
+	long cycles = results[i][j];
+	double time_ms = (double)cycles / (ntr * 175.0 * 1e3);
+	double million_mps = (double)num_migrations / (time_ms * 1e3);
+	double latency_us = (double)1e6 / million_mps;
+	printf("%d %d %d %f %f %f\n", i, j,
+	       cycles, time_ms, million_mps, latency_us);
+      }
+    }
+  }
+}
+
 int main(int argc, char** argv)
 {
   // default src<->dst, log2 migrations (4 per iteration), threads, trials
@@ -132,19 +150,9 @@ int main(int argc, char** argv)
   else RUN_BENCHMARK(ping_pong_spawn_nlet);
   MIGRATE(results[0]);
 
-  // if this is in there, the ping pong migrations are messed up
-#if 0
-  printf("source dest avg_time_ms million_mps latency_us\n");
-  for (long i = 0; i < NODELETS(); ++i) {
-    for (long j = 0; j < NODELETS(); ++j) {
-      if (results[i][j] > 0) {
-	double time_ms = (double)results[i][j] / (ntr * 175.0 * 1e3);
-	double million_mps = (double)num_migrations / (time_ms * 1e3);
-	double latency_us = (double)1e6 / million_mps;
-	printf("%d %d %f %f %f\n", i, j, time_ms, million_mps, latency_us);
-      }
-    }
-  }
+  // must be a non-inlined function or ping-pongs aren't correct
+#if 1
+  gather(ntr);
 #endif
   return 0;
 }
