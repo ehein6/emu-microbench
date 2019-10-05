@@ -149,7 +149,7 @@ int main(int argc, char** argv)
   MIGRATE(results[0]);
 
   // must be a non-inlined function or ping-pongs aren't correct
-#ifdef DEBUG
+#if 1
   gather(ntr);
 #endif
   return 0;
