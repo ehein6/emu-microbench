@@ -1,8 +1,7 @@
 #include <stdlib.h>
+#include <getopt.h>
 #include <cilk.h>
 #include <memoryweb.h>
-
-#define LOG(...) fprintf(stdout, __VA_ARGS__); fflush(stdout);
 
 replicated long num_migrations;
 replicated long num_threads;
@@ -31,9 +30,7 @@ noinline double ping_pong_spawn(long *srcptr, long *dstptr)
   unsigned long endtime = CLOCK();
   long endnid = NODE_ID();
   if (startnid != endnid) {
-    LOG("start NODE_ID %d end NODE_ID %d\n", startnid, endnid);
-    exit(1);
-  }
+    printf("start NODE_ID %d end NODE_ID %d\n", startnid, endnid); exit(1); }
   double time_ms = (double)(endtime - starttime) / (175.0 * 1e3);
   return time_ms;
 }
@@ -71,55 +68,51 @@ void ping_pong_spawn_all(long src_nlet, long dst_nlet)
   }
 }
 
-// gather results
-void gather()
-{  
-  for (long i = 0; i < NODELETS(); ++i) {
-    for (long j = 0; j < NODELETS(); ++j) {
-      if (results[i][j] > 0) {
-	double time_ms = results[i][j];
-	LOG("time %f\n", time_ms);
-	/*
-	time_ms /= ntr;
-	double migrates_per_sec = (double)(num_migrations * 1e3) / time_ms;
-	LOG("%3.2f million migrations per second\n", migrates_per_sec / (1e6));
-	LOG("Latency (amortized): %3.2f us\n", (1.0 / migrates_per_sec) * 1e6);
-	*/
-      }
-    }
-  }
-}
-
 int main(int argc, char** argv)
 {
-  if (argc != 6) {
-    LOG("Args: src dst log2_num_migrations num_threads num_trials\n");
-    LOG("      (<0 for src or dst means all)\n");
-    exit(1);
+  // default src<->dst, log2 migrations (4 per iteration), threads, trials
+  long src = 1, dst = 2, log2_num = 3, nth = 2, ntr = 2;
+  long debug = 0, use_asm = 0;
+  int c;
+  while ((c = getopt(argc, argv, "hds1:2:3:4:5:")) != -1) {
+    switch (c) {
+    case 'h':
+      printf("Program options:\n");
+      printf("\t-h print this help and exit\n");
+      printf("\t-d debug mode [%ld]\n", debug);
+      printf("\t-s use assembler [%ld]\n", use_asm);
+      printf("\t-1 <N> source nodelet (<0 = all) [%ld]\n", src);
+      printf("\t-2 <N> dest nodelet (<0 = all) [%ld]\n", dst);
+      printf("\t-3 <N> log2_num_migrations [%ld]\n", log2_num);
+      printf("\t-4 <N> number of threads [%ld]\n", nth);
+      printf("\t-5 <N> number of trials [%ld]\n", ntr);
+      exit(0);
+    case 'd': debug = 1; break;
+    case 's': use_asm = 1; break;
+    case '1': src = atol(optarg); break;
+    case '2': dst = atol(optarg); break;
+    case '3': log2_num = atol(optarg); break;
+    case '4': nth = atol(optarg); break;
+    case '5': ntr = atol(optarg); break;
+    }
   }
-
-  // get arguments
-  long src = atol(argv[1]);
-  long dst = atol(argv[2]);
-  long log2_num = atol(argv[3]);
-  long nth = atol(argv[4]);
-  long ntr = atol(argv[5]);
-
+  
   // check bounds on parameters
-  if (src >= NODELETS()) { LOG("src_nlet too high\n"); exit(1); }
-  if (dst >= NODELETS()) { LOG("dst_nlet too high\n"); exit(1); }
-  if (log2_num <= 1) { LOG("num_migrations must be >= 4\n"); exit(1); }
-  if (nth <= 0) { LOG("num_threads must be > 0\n"); exit(1); }
-  if (ntr <= 0) { LOG("num_trials must be > 0\n"); exit(1); }
+  if (src >= NODELETS()) { printf("src_nlet too high\n"); exit(1); }
+  if (dst >= NODELETS()) { printf("dst_nlet too high\n"); exit(1); }
+  if (log2_num <= 1) { printf("num_migrations must be >= 4\n"); exit(1); }
+  if (nth <= 0) { printf("num_threads must be > 0\n"); exit(1); }
+  if (ntr <= 0) { printf("num_trials must be > 0\n"); exit(1); }
 
   // log variables for the run
   long n = 1L << log2_num;
-  LOG("ping pong: num nodelets %d\n", NODELETS());
-  LOG("ping pong: src nlet %d\n", src);
-  LOG("ping pong: dst nlet %d\n", dst);
-  LOG("ping pong: num migrations %d\n", n);
-  LOG("ping pong: num threads %d\n", nth);
-  LOG("ping pong: num trials %d\n", ntr);
+  printf("ping pong: num nodelets %d\n", NODELETS());
+  printf("ping pong: src nlet %d\n", src);
+  printf("ping pong: dst nlet %d\n", dst);
+  printf("ping pong: num migrations %d\n", n);
+  printf("ping pong: num threads %d\n", nth);
+  printf("ping pong: num trials %d\n", ntr);
+  fflush(stdout);
 
   // replicated variables so no migrations for loop bounds
   mw_replicated_init(&num_migrations, n);
@@ -139,8 +132,23 @@ int main(int argc, char** argv)
   if ((src < 0) && (dst < 0)) RUN_BENCHMARK(ping_pong_spawn_all);
   else if ((src < 0) || (dst < 0)) RUN_BENCHMARK(ping_pong_spawn_dist);
   else RUN_BENCHMARK(ping_pong_spawn_nlet);
-
   MIGRATE(results[0]);
-  gather();  
+
+#ifdef DEBUG
+  // printf results if in debug mode
+  for (long i = 0; i < NODELETS(); ++i) {
+    for (long j = 0; j < NODELETS(); ++j) {
+      if (results[i][j] > 0) {
+	double time_ms = results[i][j] / (double)ntr;
+	double migrates_per_sec = (double)(num_migrations * 1e3) / time_ms;
+	printf("Average time over trials %f\n", time_ms);
+	printf("%3.2f million migrations per second\n",
+	       migrates_per_sec / (1e6));
+	printf("Latency (amortized): %3.2f us\n",
+	       (1.0 / migrates_per_sec) * 1e6);
+      }
+    }
+  }
+#endif
   return 0;
 }
