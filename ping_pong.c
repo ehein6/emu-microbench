@@ -39,6 +39,7 @@ noinline long ping_pong_spawn(long *srcptr, long *dstptr)
 // one nodelet to nodelet ping_pong
 void ping_pong_spawn_nlet(long src_nlet, long dst_nlet)
 {
+  if (src_nlet == dst_nlet) return;
   long *srcptr = mw_get_nth(&num_migrations, src_nlet); // get pointers
   long *dstptr = mw_get_nth(&num_migrations, dst_nlet);
   MIGRATE(srcptr); // migrate to source nodelet
@@ -52,12 +53,9 @@ void ping_pong_spawn_nlet(long src_nlet, long dst_nlet)
 void ping_pong_spawn_dist(long src_nlet, long dst_nlet)
 {
   for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-    if (src_nlet < 0) src_nlet = nlet; // loop over all sources for a dest
-    else if (dst_nlet < 0) dst_nlet = nlet; // loop over all dests for a src
-
-    if (dst_nlet == src_nlet) { continue; } // Skip duplicate trials
-    ping_pong_spawn_nlet(src_nlet, dst_nlet);
-  }
+    if (src_nlet < 0) ping_pong_spawn_nlet(nlet, dst_nlet);
+    else if (dst_nlet < 0) ping_pong_spawn_nlet(src_nlet, nlet);
+  } // only one is < 0 for this to be called
 }
 
 // all-to-all ping_pong, skip duplicates, params not used
@@ -114,8 +112,8 @@ int main(int argc, char** argv)
   }
   
   // check bounds on parameters
-  if (src >= NODELETS()) { printf("src_nlet too high\n"); exit(1); }
-  if (dst >= NODELETS()) { printf("dst_nlet too high\n"); exit(1); }
+  if (src >= (long)NODELETS()) { printf("src_nlet too high\n"); exit(1); }
+  if (dst >= (long)NODELETS()) { printf("dst_nlet too high\n"); exit(1); }
   if (log2_num <= 1) { printf("num_migrations must be >= 4\n"); exit(1); }
   if (nth <= 0) { printf("num_threads must be > 0\n"); exit(1); }
   if (ntr <= 0) { printf("num_trials must be > 0\n"); exit(1); }
@@ -151,7 +149,7 @@ int main(int argc, char** argv)
   MIGRATE(results[0]);
 
   // must be a non-inlined function or ping-pongs aren't correct
-#if 1
+#ifdef DEBUG
   gather(ntr);
 #endif
   return 0;
