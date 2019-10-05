@@ -20,19 +20,20 @@ void ping_pong(long *srcptr, long *dstptr)
   }
 }
 
-noinline double ping_pong_spawn(long *srcptr, long *dstptr)
+// spawn threads for ping pong, compute elapsed time (cycles)
+noinline long ping_pong_spawn(long *srcptr, long *dstptr)
 {
   long t = num_threads;
-  long startnid = NODE_ID();
+  unsigned long startnid = NODE_ID();
   unsigned long starttime = CLOCK();
   for (long i = 0; i < t; ++i) cilk_spawn ping_pong(srcptr, dstptr);
   cilk_sync;
   unsigned long endtime = CLOCK();
-  long endnid = NODE_ID();
+  unsigned long endnid = NODE_ID();
   if (startnid != endnid) {
     printf("start NODE_ID %d end NODE_ID %d\n", startnid, endnid); exit(1); }
-  double time_ms = (double)(endtime - starttime) / (175.0 * 1e3);
-  return time_ms;
+  long totaltime = endtime - starttime;
+  return totaltime;
 }
 
 // one nodelet to nodelet ping_pong
@@ -41,8 +42,10 @@ void ping_pong_spawn_nlet(long src_nlet, long dst_nlet)
   long *srcptr = mw_get_nth(&num_migrations, src_nlet); // get pointers
   long *dstptr = mw_get_nth(&num_migrations, dst_nlet);
   MIGRATE(srcptr); // migrate to source nodelet
-  double time_ms = ping_pong_spawn(srcptr, dstptr);
-  results[src_nlet][dst_nlet] += time_ms;
+  // if this is long instead of double, 2 extra migrations
+  //  long cycles = ping_pong_spawn(srcptr, dstptr);
+  double cycles = ping_pong_spawn(srcptr, dstptr);
+  results[src_nlet][dst_nlet] += cycles;
 }
 
 // iterates over all nlets for a given source or dest (<0 means loop)
@@ -72,28 +75,23 @@ int main(int argc, char** argv)
 {
   // default src<->dst, log2 migrations (4 per iteration), threads, trials
   long src = 1, dst = 2, log2_num = 3, nth = 2, ntr = 2;
-  long debug = 0, use_asm = 0;
   int c;
-  while ((c = getopt(argc, argv, "hds1:2:3:4:5:")) != -1) {
+  while ((c = getopt(argc, argv, "hs:d:m:t:r:")) != -1) {
     switch (c) {
     case 'h':
       printf("Program options:\n");
       printf("\t-h print this help and exit\n");
-      printf("\t-d debug mode [%ld]\n", debug);
-      printf("\t-s use assembler [%ld]\n", use_asm);
-      printf("\t-1 <N> source nodelet (<0 = all) [%ld]\n", src);
-      printf("\t-2 <N> dest nodelet (<0 = all) [%ld]\n", dst);
-      printf("\t-3 <N> log2_num_migrations [%ld]\n", log2_num);
-      printf("\t-4 <N> number of threads [%ld]\n", nth);
-      printf("\t-5 <N> number of trials [%ld]\n", ntr);
+      printf("\t-s <N> source nodelet (<0 = all) [%ld]\n", src);
+      printf("\t-d <N> dest nodelet (<0 = all) [%ld]\n", dst);
+      printf("\t-m <N> log2_num_migrations [%ld]\n", log2_num);
+      printf("\t-t <N> number of threads [%ld]\n", nth);
+      printf("\t-r <N> number of trials [%ld]\n", ntr);
       exit(0);
-    case 'd': debug = 1; break;
-    case 's': use_asm = 1; break;
-    case '1': src = atol(optarg); break;
-    case '2': dst = atol(optarg); break;
-    case '3': log2_num = atol(optarg); break;
-    case '4': nth = atol(optarg); break;
-    case '5': ntr = atol(optarg); break;
+    case 's': src = atol(optarg); break;
+    case 'd': dst = atol(optarg); break;
+    case 'm': log2_num = atol(optarg); break;
+    case 't': nth = atol(optarg); break;
+    case 'r': ntr = atol(optarg); break;
     }
   }
   
@@ -134,18 +132,16 @@ int main(int argc, char** argv)
   else RUN_BENCHMARK(ping_pong_spawn_nlet);
   MIGRATE(results[0]);
 
-#ifdef DEBUG
-  // printf results if in debug mode
+  // if this is in there, the ping pong migrations are messed up
+#if 0
+  printf("source dest avg_time_ms million_mps latency_us\n");
   for (long i = 0; i < NODELETS(); ++i) {
     for (long j = 0; j < NODELETS(); ++j) {
       if (results[i][j] > 0) {
-	double time_ms = results[i][j] / (double)ntr;
-	double migrates_per_sec = (double)(num_migrations * 1e3) / time_ms;
-	printf("Average time over trials %f\n", time_ms);
-	printf("%3.2f million migrations per second\n",
-	       migrates_per_sec / (1e6));
-	printf("Latency (amortized): %3.2f us\n",
-	       (1.0 / migrates_per_sec) * 1e6);
+	double time_ms = (double)results[i][j] / (ntr * 175.0 * 1e3);
+	double million_mps = (double)num_migrations / (time_ms * 1e3);
+	double latency_us = (double)1e6 / million_mps;
+	printf("%d %d %f %f %f\n", i, j, time_ms, million_mps, latency_us);
       }
     }
   }
