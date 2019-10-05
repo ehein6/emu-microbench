@@ -1,242 +1,146 @@
-#include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <cilk/cilk.h>
-#include <assert.h>
-#include <string.h>
-#include <emu_c_utils/emu_c_utils.h>
+#include <cilk.h>
+#include <memoryweb.h>
 
-#include "common.h"
+#define LOG(...) fprintf(stdout, __VA_ARGS__); fflush(stdout);
 
-typedef struct ping_pong_data {
-    long * a;
-    long num_migrations;
-    long num_threads;
-} ping_pong_data;
+replicated long num_migrations;
+replicated long num_threads;
+replicated long **results;
 
-void
-ping_pong_init(ping_pong_data * data, long num_migrations, long num_threads)
+// ping pong function: starts at src, migrates 4 times to/from dst
+void ping_pong(long *srcptr, long *dstptr)
 {
-    data->num_migrations = num_migrations;
-    data->num_threads = num_threads;
-    data->a = mw_malloc1dlong(NODELETS());
+  // Each iteration forces four migrations
+  long n = num_migrations / 4;
+  for (long i = 0; i < n; ++i) {
+    MIGRATE(dstptr);
+    MIGRATE(srcptr);
+    MIGRATE(dstptr);
+    MIGRATE(srcptr);
+  }
 }
 
-void
-ping_pong_deinit(ping_pong_data * data)
+noinline double ping_pong_spawn(long *srcptr, long *dstptr)
 {
-    mw_free(data->a);
+  long t = num_threads;
+  long startnid = NODE_ID();
+  unsigned long starttime = CLOCK();
+  for (long i = 0; i < t; ++i) cilk_spawn ping_pong(srcptr, dstptr);
+  cilk_sync;
+  unsigned long endtime = CLOCK();
+  long endnid = NODE_ID();
+  if (startnid != endnid) {
+    LOG("start NODE_ID %d end NODE_ID %d\n", startnid, endnid);
+    exit(1);
+  }
+  double time_ms = (double)(endtime - starttime) / (175.0 * 1e3);
+  return time_ms;
 }
 
-// Migrate back and forth between two adjacent nodelets
-void
-ping_pong_local(ping_pong_data * data)
+// one nodelet to nodelet ping_pong
+void ping_pong_spawn_nlet(long src_nlet, long dst_nlet)
 {
-    long * a = data->a;
-    // Each iteration forces four migrations
-    long n = data->num_migrations / 4;
-    for (long i = 0; i < n; ++i) {
-        MIGRATE(&a[1]);
-        MIGRATE(&a[0]);
-        MIGRATE(&a[1]);
-        MIGRATE(&a[0]);
+  long *srcptr = mw_get_nth(&num_migrations, src_nlet); // get pointers
+  long *dstptr = mw_get_nth(&num_migrations, dst_nlet);
+  MIGRATE(srcptr); // migrate to source nodelet
+  double time_ms = ping_pong_spawn(srcptr, dstptr);
+  results[src_nlet][dst_nlet] += time_ms;
+}
+
+// iterates over all nlets for a given source or dest (<0 means loop)
+void ping_pong_spawn_dist(long src_nlet, long dst_nlet)
+{
+  for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+    if (src_nlet < 0) src_nlet = nlet; // loop over all sources for a dest
+    else if (dst_nlet < 0) dst_nlet = nlet; // loop over all dests for a src
+
+    if (dst_nlet == src_nlet) { continue; } // Skip duplicate trials
+    ping_pong_spawn_nlet(src_nlet, dst_nlet);
+  }
+}
+
+// all-to-all ping_pong, skip duplicates, params not used
+void ping_pong_spawn_all(long src_nlet, long dst_nlet)
+{
+  for (long src_nlet = 0; src_nlet < NODELETS(); ++src_nlet) {
+    for (long dst_nlet = 0; dst_nlet < NODELETS(); ++dst_nlet) {
+      if (dst_nlet <= src_nlet) { continue; } // Skip duplicate trials
+      ping_pong_spawn_nlet(src_nlet, dst_nlet);
     }
+  }
 }
 
-// Migrate back and forth between two adjacent nodes
-void
-ping_pong_global(ping_pong_data * data)
-{
-    long * a = data->a;
-    // Each iteration forces four migrations
-    long n = data->num_migrations / 4;
-    for (long i = 0; i < n; ++i) {
-        MIGRATE(&a[8]);
-        MIGRATE(&a[0]);
-        MIGRATE(&a[8]);
-        MIGRATE(&a[0]);
+// gather results
+void gather()
+{  
+  for (long i = 0; i < NODELETS(); ++i) {
+    for (long j = 0; j < NODELETS(); ++j) {
+      if (results[i][j] > 0) {
+	double time_ms = results[i][j];
+	LOG("time %f\n", time_ms);
+	/*
+	time_ms /= ntr;
+	double migrates_per_sec = (double)(num_migrations * 1e3) / time_ms;
+	LOG("%3.2f million migrations per second\n", migrates_per_sec / (1e6));
+	LOG("Latency (amortized): %3.2f us\n", (1.0 / migrates_per_sec) * 1e6);
+	*/
+      }
     }
-}
-
-void
-ping_pong_global_sweep(ping_pong_data * data, long src_node, long dst_node)
-{
-    long * a = data->a;
-    // Each iteration forces four migrations
-    long n = data->num_migrations / 4;
-
-    // Pick a nodelet on each node
-    const long nlets_per_node = 8;
-    long src_nlet = src_node * nlets_per_node;
-    long dst_nlet = dst_node * nlets_per_node;
-
-    for (long i = 0; i < n; ++i) {
-        MIGRATE(&a[dst_nlet]);
-        MIGRATE(&a[src_nlet]);
-        MIGRATE(&a[dst_nlet]);
-        MIGRATE(&a[src_nlet]);
-    }
-}
-
-void
-ping_pong_global_sweep_nlets(ping_pong_data * data, long src_nlet, long dst_nlet)
-{
-    long * a = data->a;
-    // Each iteration forces four migrations
-    long n = data->num_migrations / 4;
-
-    for (long i = 0; i < n; ++i) {
-        MIGRATE(&a[dst_nlet]);
-        MIGRATE(&a[src_nlet]);
-        MIGRATE(&a[dst_nlet]);
-        MIGRATE(&a[src_nlet]);
-    }
-}
-
-void
-ping_pong_spawn_local(ping_pong_data * data)
-{
-    for (long i = 0; i < data->num_threads; ++i) {
-        cilk_spawn ping_pong_local(data);
-    }
-}
-
-void
-ping_pong_spawn_global(ping_pong_data * data)
-{
-    runtime_assert(NODELETS() > 8,
-        "Global ping pong requires a configuration with more than one node (more than 8 nodelets)"
-    );
-    for (long i = 0; i < data->num_threads; ++i) {
-        cilk_spawn ping_pong_global(data);
-    }
-}
-
-void
-ping_pong_spawn_global_sweep(ping_pong_data * data)
-{
-    runtime_assert(NODELETS() > 8,
-        "Global ping pong requires a configuration with more than one node (more than 8 nodelets)"
-    );
-
-    const long nlets_per_node = 8;
-    const long num_nodes = NODELETS() / nlets_per_node;
-
-    for (long src_node = 0; src_node < num_nodes; ++src_node) {
-        for (long dst_node = 0; dst_node < num_nodes; ++dst_node) {
-            if (dst_node <= src_node) { continue; }
-
-            LOG("Migrating between node %li and node %li\n", src_node, dst_node);
-
-            for (long i = 0; i < data->num_threads; ++i) {
-                cilk_spawn ping_pong_global_sweep(data, src_node, dst_node);
-            }
-            cilk_sync;
-        }
-    }
-}
-
-void
-ping_pong_spawn_global_sweep_nlets(ping_pong_data * data)
-{
-    const long nlets_per_node = 8;
-    const long num_nodes = NODELETS() / nlets_per_node;
-
-    for (long src_nlet = 0; src_nlet < NODELETS(); ++src_nlet) {
-        for (long dst_nlet = 0; dst_nlet < NODELETS(); ++dst_nlet) {
-            // Skip duplicate trials
-            if (dst_nlet <= src_nlet) { continue; }
-            // Only intra-node migration trials
-            if (dst_nlet / num_nodes == src_nlet / num_nodes) { continue; }
-
-            LOG("Migrating between nlet %li and nlet %li\n", src_nlet, dst_nlet);
-
-            hooks_set_attr_i64("src_nlet", src_nlet);
-            hooks_set_attr_i64("dst_nlet", dst_nlet);
-            hooks_region_begin("ping_pong");
-
-            for (long i = 0; i < data->num_threads; ++i) {
-                cilk_spawn ping_pong_global_sweep_nlets(data, src_nlet, dst_nlet);
-            }
-            cilk_sync;
-
-            double time_ms = hooks_region_end();
-            if (time_ms != 0) { // simulator was run without timing mode enabled
-                double migrations_per_second = (data->num_migrations) / (time_ms/1e3);
-                LOG("%3.2f million migrations per second\n", migrations_per_second / (1e6));
-                LOG("Latency (amortized): %3.2f us\n", (1.0 / migrations_per_second) * 1e6);
-            }
-        }
-    }
-}
-
-void ping_pong_run(
-    ping_pong_data * data,
-    const char * name,
-    void (*benchmark)(ping_pong_data *),
-    long num_trials)
-{
-    for (long trial = 0; trial < num_trials; ++trial) {
-        hooks_set_attr_i64("trial", trial);
-        hooks_region_begin(name);
-        benchmark(data);
-        double time_ms = hooks_region_end();
-        if (time_ms == 0) return; // simulator was run without timing mode enabled
-        double migrations_per_second = (data->num_migrations) / (time_ms/1e3);
-        LOG("%3.2f million migrations per second\n", migrations_per_second / (1e6));
-        LOG("Latency (amortized): %3.2f us\n", (1.0 / migrations_per_second) * 1e6);
-    }
+  }
 }
 
 int main(int argc, char** argv)
 {
-    struct {
-        const char* mode;
-        long log2_num_migrations;
-        long num_threads;
-        long num_trials;
-    } args;
+  if (argc != 6) {
+    LOG("Args: src dst log2_num_migrations num_threads num_trials\n");
+    LOG("      (<0 for src or dst means all)\n");
+    exit(1);
+  }
 
-    if (argc != 5) {
-        LOG("Usage: %s mode log2_num_migrations num_threads num_trials\n", argv[0]);
-        exit(1);
-    } else {
-        args.mode = argv[1];
-        args.log2_num_migrations = atol(argv[2]);
-        args.num_threads = atol(argv[3]);
-        args.num_trials = atol(argv[4]);
+  // get arguments
+  long src = atol(argv[1]);
+  long dst = atol(argv[2]);
+  long log2_num = atol(argv[3]);
+  long nth = atol(argv[4]);
+  long ntr = atol(argv[5]);
 
-        if (args.log2_num_migrations <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
-        if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
-    }
+  // check bounds on parameters
+  if (src >= NODELETS()) { LOG("src_nlet too high\n"); exit(1); }
+  if (dst >= NODELETS()) { LOG("dst_nlet too high\n"); exit(1); }
+  if (log2_num <= 1) { LOG("num_migrations must be >= 4\n"); exit(1); }
+  if (nth <= 0) { LOG("num_threads must be > 0\n"); exit(1); }
+  if (ntr <= 0) { LOG("num_trials must be > 0\n"); exit(1); }
 
-    hooks_set_attr_str("mode", args.mode);
-    hooks_set_attr_i64("log2_num_migrations", args.log2_num_migrations);
-    hooks_set_attr_i64("num_threads", args.num_threads);
-    hooks_set_attr_i64("num_nodelets", NODELETS());
+  // log variables for the run
+  long n = 1L << log2_num;
+  LOG("ping pong: num nodelets %d\n", NODELETS());
+  LOG("ping pong: src nlet %d\n", src);
+  LOG("ping pong: dst nlet %d\n", dst);
+  LOG("ping pong: num migrations %d\n", n);
+  LOG("ping pong: num threads %d\n", nth);
+  LOG("ping pong: num trials %d\n", ntr);
 
-    long n = 1L << args.log2_num_migrations;
-    ping_pong_data data;
-    data.num_threads = args.num_threads;
-    ping_pong_init(&data, n, args.num_threads);
-    LOG("Doing %s ping pong \n", args.mode);
+  // replicated variables so no migrations for loop bounds
+  mw_replicated_init(&num_migrations, n);
+  mw_replicated_init(&num_threads, nth);
+  double **tmp_res = mw_malloc2d(NODELETS(), NODELETS() * sizeof(double));
+  mw_replicated_init((long *)&results, (long)tmp_res);
+  
+  for (long i = 0; i < NODELETS(); ++i)
+    for (long j = 0; j < NODELETS(); ++j)
+      results[i][j] = 0; // initialize results to zero
 
-    #define RUN_BENCHMARK(X) ping_pong_run(&data, args.mode, X, args.num_trials)
+#define RUN_BENCHMARK(X) for (long r = 0; r < ntr; ++r) X(src, dst)
 
-    if (!strcmp(args.mode, "local")) {
-        RUN_BENCHMARK(ping_pong_spawn_local);
-    } else if (!strcmp(args.mode, "global")) {
-        RUN_BENCHMARK(ping_pong_spawn_global);
-    } else if (!strcmp(args.mode, "global_sweep")) {
-        RUN_BENCHMARK(ping_pong_spawn_global_sweep);
-    } else if (!strcmp(args.mode, "global_sweep_nlets")) {
-        RUN_BENCHMARK(ping_pong_spawn_global_sweep_nlets);
-    } else {
-        LOG("Mode %s not implemented!", args.mode);
-    }
+  // 3 modes for benchmark depending on src/dst arguments
+  MIGRATE(results[0]);
+  starttiming();
+  if ((src < 0) && (dst < 0)) RUN_BENCHMARK(ping_pong_spawn_all);
+  else if ((src < 0) || (dst < 0)) RUN_BENCHMARK(ping_pong_spawn_dist);
+  else RUN_BENCHMARK(ping_pong_spawn_nlet);
 
-    ping_pong_deinit(&data);
-    return 0;
+  MIGRATE(results[0]);
+  gather();  
+  return 0;
 }
