@@ -42,9 +42,17 @@ void ping_pong_spawn_nlet(long src_nlet, long dst_nlet)
   if (src_nlet == dst_nlet) return;
   long *srcptr = mw_get_nth(&num_migrations, src_nlet); // get pointers
   long *dstptr = mw_get_nth(&num_migrations, dst_nlet);
+
+  /* this doesn't work - doesn't spawn in src node -- WHY?
+  double cycles;
+  cilk_spawn_at (srcptr) cycles = ping_pong_spawn(srcptr, dstptr);
+  cilk_sync; */
+
   MIGRATE(srcptr); // migrate to source nodelet
-  // if this is long instead of double, 2 extra migrations
+
+  // if this is long instead of double, 2 extra migrations -- WHY?
   //  long cycles = ping_pong_spawn(srcptr, dstptr);
+
   double cycles = ping_pong_spawn(srcptr, dstptr);
   results[src_nlet][dst_nlet] += cycles;
 }
@@ -69,7 +77,8 @@ void ping_pong_spawn_all(long src_nlet, long dst_nlet)
   }
 }
 
-// function to gather output, must be noinline
+// gather output; must be noinline or ping_pong doesn't work -- WHY?
+// void gather(long ntr)
 noinline void gather(long ntr)
 {
   printf("source dest cycles avg_time_ms million_mps latency_us\n");
@@ -148,7 +157,7 @@ int main(int argc, char** argv)
   else RUN_BENCHMARK(ping_pong_spawn_nlet);
   MIGRATE(results[0]);
 
-  // must be a non-inlined function or ping-pongs aren't correct
+  // gather and print results
 #if 1
   gather(ntr);
 #endif
