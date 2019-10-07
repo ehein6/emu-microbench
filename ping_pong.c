@@ -24,12 +24,12 @@ void ping_pong(long *srcptr, long *dstptr)
 noinline long ping_pong_spawn(long *srcptr, long *dstptr)
 {
   long t = num_threads;
-  unsigned long startnid = NODE_ID();
-  unsigned long starttime = CLOCK();
+  volatile unsigned long startnid = NODE_ID();
+  volatile unsigned long starttime = CLOCK();
   for (long i = 0; i < t; ++i) cilk_spawn ping_pong(srcptr, dstptr);
   cilk_sync;
-  unsigned long endtime = CLOCK();
-  unsigned long endnid = NODE_ID();
+  volatile unsigned long endtime = CLOCK();
+  volatile unsigned long endnid = NODE_ID();
   if (startnid != endnid) {
     printf("start NODE_ID %d end NODE_ID %d\n", startnid, endnid); exit(1); }
   long totaltime = endtime - starttime;
@@ -148,7 +148,7 @@ int main(int argc, char** argv)
   MIGRATE(results[0]);
 
   // gather and print results
-#if 1
+#ifndef DEBUG
   gather(ntr);
 #endif
   return 0;
