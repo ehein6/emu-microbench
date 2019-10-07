@@ -43,17 +43,8 @@ void ping_pong_spawn_nlet(long src_nlet, long dst_nlet)
   long *srcptr = mw_get_nth(&num_migrations, src_nlet); // get pointers
   long *dstptr = mw_get_nth(&num_migrations, dst_nlet);
 
-  /* this doesn't work - doesn't spawn in src node -- WHY?
-  double cycles;
-  cilk_spawn_at (srcptr) cycles = ping_pong_spawn(srcptr, dstptr);
-  cilk_sync; */
-
   MIGRATE(srcptr); // migrate to source nodelet
-
-  // if this is long instead of double, 2 extra migrations -- WHY?
-  //  long cycles = ping_pong_spawn(srcptr, dstptr);
-
-  double cycles = ping_pong_spawn(srcptr, dstptr);
+  long cycles = ping_pong_spawn(srcptr, dstptr);
   results[src_nlet][dst_nlet] += cycles;
 }
 
@@ -77,8 +68,7 @@ void ping_pong_spawn_all(long src_nlet, long dst_nlet)
   }
 }
 
-// gather output; must be noinline or ping_pong doesn't work -- WHY?
-// void gather(long ntr)
+// gather output; must be noinline or ping_pong doesn't work
 noinline void gather(long ntr)
 {
   printf("source dest cycles avg_time_ms million_mps latency_us\n");
