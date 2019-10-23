@@ -68,6 +68,8 @@ add_exe(spawn_rate.c)
 add_exe(hot_range.c)
 add_exe(hot_range_chunked.c)
 
+add_exe(allocation.cc)
+
 set(ENABLE_CXX_BENCHMARKS OFF
     CACHE BOOL "Build C++ benchmarks, which rely on emu_cxx_utils.")
 if (ENABLE_CXX_BENCHMARKS)
