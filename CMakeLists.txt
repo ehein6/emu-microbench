@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.3.1)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include (ExternalProject)
 
-project(emu-microbench C CXX)
+project(emu-microbench C ASM CXX)
 
 # Use the 2011 standards for C and C++
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
@@ -69,6 +69,14 @@ add_exe(hot_range.c)
 add_exe(hot_range_chunked.c)
 
 add_exe(allocation.cc)
+
+# 'locks' uses assembly, disable for non-Emu platform
+if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
+    add_executable(locks locks.cc lock_impls.S)
+else()
+    add_executable(locks locks.cc)
+endif()
+install(TARGETS locks RUNTIME DESTINATION ".")
 
 set(ENABLE_CXX_BENCHMARKS OFF
     CACHE BOOL "Build C++ benchmarks, which rely on emu_cxx_utils.")
