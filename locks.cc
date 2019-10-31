@@ -35,7 +35,7 @@ atomic_cas(T volatile *ptr, T oldval, T newval);
 template<>
 inline long
 atomic_cas(long volatile *ptr, long oldval, long newval) {
-    return ATOMIC_CAS(ptr, oldval, newval);
+    return ATOMIC_CAS(ptr, newval, oldval);
 }
 
 template<typename T>
@@ -150,7 +150,7 @@ worker(Mutex& mutex, volatile double * counter, long n)
     // Lock and increment counter N times
     for (long i = 0; i < n; ++i){
         mutex.lock();
-        ++*counter;
+        *counter += 1.0;
         mutex.unlock();
     }
 }
