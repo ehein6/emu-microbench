@@ -140,6 +140,18 @@ public:
     void lock() { lock_cas_mutex_E(&lock_); }
     void unlock() { lock_ = 0; }
 };
+
+// Defined in lock_impls.S
+extern "C" void lock_cas_mutex_F(volatile long * lock);
+class cas_mutex_F
+{
+private:
+    volatile long lock_;
+public:
+    cas_mutex_F() : lock_(0) {}
+    void lock() { lock_cas_mutex_F(&lock_); }
+    void unlock() { lock_ = 0; }
+};
 #endif
 
 
@@ -157,6 +169,7 @@ worker(Mutex& mutex, volatile double * counter, long n)
 #ifdef __EMU_CC__
 template<> void worker(cas_mutex_D& mutex, volatile double * counter, long n);
 template<> void worker(cas_mutex_E& mutex, volatile double * counter, long n);
+template<> void worker(cas_mutex_F& mutex, volatile double * counter, long n);
 #endif
 
 template<typename Mutex>
