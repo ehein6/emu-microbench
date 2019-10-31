@@ -145,7 +145,7 @@ public:
 
 template<class Mutex>
 void
-worker(Mutex& mutex, long * counter, long n)
+worker(Mutex& mutex, volatile double * counter, long n)
 {
     // Lock and increment counter N times
     for (long i = 0; i < n; ++i){
@@ -154,13 +154,17 @@ worker(Mutex& mutex, long * counter, long n)
         mutex.unlock();
     }
 }
+#ifdef __EMU_CC__
+template<> void worker(cas_mutex_D& mutex, volatile double * counter, long n);
+template<> void worker(cas_mutex_E& mutex, volatile double * counter, long n);
+#endif
 
 template<typename Mutex>
 void run_test(long n, long num_threads, long num_trials)
 {
     long n_per_thread = n / num_threads;
     Mutex mutex;
-    long counter;
+    volatile double counter;
     for (long trial = 0; trial < num_trials; ++trial) {
         counter = 0;
         hooks_set_attr_i64("trial", trial);
@@ -173,6 +177,13 @@ void run_test(long n, long num_threads, long num_trials)
         double locks_per_second = n / (time_ms/1000);
         LOG("%3.2f million lock acquires per second\n",
             locks_per_second / (1000000));
+
+#ifndef NO_VALIDATE
+        long counter_val = static_cast<long>(counter);
+        if (counter_val != n) {
+            LOG("ERROR: Counter mismatch (%li != %li)\n", counter_val, n);
+        }
+#endif
     }
 }
 
