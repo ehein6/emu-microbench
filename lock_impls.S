@@ -95,8 +95,8 @@
     .function_end
 
 // template<> void worker(cas_mutex_F& mutex, volatile double * counter, long n)
-.global @_Z6workerI11cas_mutex_EFvRT_PVdl
-@_Z6workerI11cas_mutex_EFvRT_PVdl:
+.global @_Z6workerI11cas_mutex_FEvRT_PVdl
+@_Z6workerI11cas_mutex_FEvRT_PVdl:
     .function_begin
     lsr     1               // D = 1
     dte     11              // E11 = 1 (used for CAS)

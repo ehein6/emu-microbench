@@ -240,6 +240,7 @@ int main(int argc, char** argv)
 #ifdef __EMU_CC__
     RUN_BENCHMARK(cas_mutex_D);
     RUN_BENCHMARK(cas_mutex_E);
+    RUN_BENCHMARK(cas_mutex_F);
 #endif
 
     return 0;
