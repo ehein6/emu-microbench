@@ -5,10 +5,8 @@
 #include <emu_c_utils/emu_c_utils.h>
 
 #include "common.h"
+#include "queue_lock.h"
 
-#ifndef __EMU_CC__
-#define RELEASE(X, Y) abort()
-#endif
 
 // Define type-safe wrappers for Emu atomic intrinsics
 // TODO Include these from emu_cxx_utils
@@ -242,6 +240,8 @@ int main(int argc, char** argv)
     RUN_BENCHMARK(cas_mutex_E);
     RUN_BENCHMARK(cas_mutex_F);
 #endif
+
+    RUN_BENCHMARK(queue_lock);
 
     return 0;
 }
