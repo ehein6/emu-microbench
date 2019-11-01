@@ -56,6 +56,7 @@ endfunction()
 
 add_exe(local_stream.c)
 add_exe(global_stream.c)
+add_exe(global_copy.c)
 add_exe(global_stream_1d.c)
 add_exe(global_reduce.c)
 add_exe(pointer_chase.c)
