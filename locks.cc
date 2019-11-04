@@ -154,7 +154,7 @@ public:
 
 
 template<class Mutex>
-void
+noinline void
 worker(Mutex& mutex, volatile double * counter, long n)
 {
     // Lock and increment counter N times
@@ -164,6 +164,7 @@ worker(Mutex& mutex, volatile double * counter, long n)
         mutex.unlock();
     }
 }
+
 #ifdef __EMU_CC__
 template<> void worker(cas_mutex_D& mutex, volatile double * counter, long n);
 template<> void worker(cas_mutex_E& mutex, volatile double * counter, long n);
@@ -174,6 +175,10 @@ template<typename Mutex>
 void run_test(long n, long num_threads, long num_trials)
 {
     long n_per_thread = n / num_threads;
+    if (n_per_thread == 0) {
+        LOG("ERROR: N must be divisible by num_threads\n");
+        exit(1);
+    }
     Mutex mutex;
     volatile double counter;
     for (long trial = 0; trial < num_trials; ++trial) {
@@ -214,9 +219,9 @@ int main(int argc, char** argv)
         args.num_threads = atol(argv[2]);
         args.num_trials = atol(argv[3]);
 
-        if (args.log2_n <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
-        if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
+        if (args.log2_n < 0) { LOG("log2_n must be >= 0\n"); exit(1); }
+        if (args.num_threads <= 0) { LOG("num_threads must be > 0\n"); exit(1); }
+        if (args.num_trials <= 0) { LOG("num_trials must be > 0\n"); exit(1); }
     }
 
     hooks_set_attr_i64("log2_num_mallocs", args.log2_n);
@@ -239,9 +244,9 @@ int main(int argc, char** argv)
     RUN_BENCHMARK(cas_mutex_D);
     RUN_BENCHMARK(cas_mutex_E);
     RUN_BENCHMARK(cas_mutex_F);
-#endif
 
     RUN_BENCHMARK(queue_lock);
+#endif
 
     return 0;
 }
