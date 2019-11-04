@@ -3,8 +3,7 @@
 #error queue_lock only works on Emu
 #endif
 
-#include <setjmp.h>
-
+#include "common.h"
 #include <memoryweb.h>
 
 
@@ -37,10 +36,12 @@ private:
     // The actual state of this lock
     long is_locked_ = 0;
     // Next available position in the queue
-    volatile long queue_pos_ = 0;
+    long queue_pos_ = 0;
     // Queue of TSR's that are sleeping while waiting for the lock
-    jmp_buf queue_ [max_threads] = {};
+    struct tsr { long storage[32]; };
+    tsr queue_ [max_threads] = {};
 public:
+
     void lock() {
         // Lock the queue
         queue_lock_.lock();
@@ -56,11 +57,11 @@ public:
             // Save my state to the queue
             // STS returns 0 : I am the thread that executed STS
             // STS returns 1 : I am the thread that woke up
-            if (!STS(&queue_[slot])) {
+            if (!STS(queue_[slot].storage)) {
                 // I've saved myself to the queue, give up the lock and die
                 queue_lock_.unlock();
                 // TODO: make sure we don't give up our credit here
-                RELEASE(0);
+                RELEASE(0, 0);
             }
             // I've been woken up, my turn to enter the critical section
             // Ownership of the _queue_lock was transferred to me
@@ -75,7 +76,7 @@ public:
         if (queue_pos_ > 0) {
             // Wake up the thread at the tail of the list
             long slot = --queue_pos_;
-            WAKEUP(&queue_[slot]);
+            WAKEUP(queue_[slot].storage);
             // The thread we just woke up owns the queue_lock now
         } else {
             // Unlock this lock
