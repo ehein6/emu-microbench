@@ -135,7 +135,7 @@ def generate_script(args, script_dir, out_dir, local_config, no_redirect, no_alg
     # Emu hardware (multi node) command line
     elif local_config["platform"] == "emuchick":
         template += """
-        emu_multinode_exec 0 --thread_quit_off {exe} -- \\"""
+        emu_multinode_exec 0 --thread_quit_off -- {exe} \\"""
 
     # Emu profiler command line
     elif "emusim_profile" in local_config["platform"]:
