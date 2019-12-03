@@ -1,11 +1,12 @@
 #include <cstdlib>
 #include <cstdio>
+#include <string>
 #include <cilk/cilk.h>
 
 #include <emu_c_utils/emu_c_utils.h>
 
 #include "common.h"
-#ifdef __EMU_CC__
+#if defined(__EMU_CC__) && defined(WAKEUP)
 #include "queue_lock.h"
 #endif
 
@@ -207,18 +208,22 @@ void run_test(long n, long num_threads, long num_trials)
 int main(int argc, char** argv)
 {
     struct {
+        std::string impl;
         long log2_n;
         long num_threads;
         long num_trials;
     } args;
 
-    if (argc != 4) {
-        LOG("Usage: %s log2_n num_threads num_trials\n", argv[0]);
+    if (argc != 5) {
+        LOG("Usage: %s impl log2_n num_threads num_trials\n", argv[0]);
+        LOG("    impl can be 'all' or one of the following:\n");
+        LOG("    cas_mutex_{A,B,C,D,E,F}, queue_lock\n");
         exit(1);
     } else {
-        args.log2_n = atol(argv[1]);
-        args.num_threads = atol(argv[2]);
-        args.num_trials = atol(argv[3]);
+        args.impl = argv[1];
+        args.log2_n = atol(argv[2]);
+        args.num_threads = atol(argv[3]);
+        args.num_trials = atol(argv[4]);
 
         if (args.log2_n < 0) { LOG("log2_n must be >= 0\n"); exit(1); }
         if (args.num_threads <= 0) { LOG("num_threads must be > 0\n"); exit(1); }
@@ -233,21 +238,46 @@ int main(int argc, char** argv)
     LOG("Testing with %li threads, total of %li lock/unlock operations\n",
         args.num_threads, n);
 
+
 #define RUN_BENCHMARK(NAME) \
     LOG("Benchmarking %s:\n", #NAME); \
     hooks_set_attr_str("mutex", #NAME); \
     run_test<NAME>(n, args.num_threads, args.num_trials);
 
-    RUN_BENCHMARK(cas_mutex_A);
-    RUN_BENCHMARK(cas_mutex_B);
-    RUN_BENCHMARK(cas_mutex_C);
+    if (args.impl == "all") {
+        RUN_BENCHMARK(cas_mutex_A);
+        RUN_BENCHMARK(cas_mutex_B);
+        RUN_BENCHMARK(cas_mutex_C);
 #ifdef __EMU_CC__
-    RUN_BENCHMARK(cas_mutex_D);
-    RUN_BENCHMARK(cas_mutex_E);
-    RUN_BENCHMARK(cas_mutex_F);
-
-    RUN_BENCHMARK(queue_lock);
+        RUN_BENCHMARK(cas_mutex_D);
+        RUN_BENCHMARK(cas_mutex_E);
+        RUN_BENCHMARK(cas_mutex_F);
+#ifdef WAKEUP
+        RUN_BENCHMARK(queue_lock);
 #endif
+#endif
+    } else if (args.impl == "cas_mutex_A") {
+        RUN_BENCHMARK(cas_mutex_A);
+    } else if (args.impl == "cas_mutex_B") {
+        RUN_BENCHMARK(cas_mutex_B);
+    } else if (args.impl == "cas_mutex_C") {
+        RUN_BENCHMARK(cas_mutex_C);
+#ifdef __EMU_CC__
+    } else if (args.impl == "cas_mutex_D") {
+        RUN_BENCHMARK(cas_mutex_D);
+    } else if (args.impl == "cas_mutex_E") {
+        RUN_BENCHMARK(cas_mutex_E);
+    } else if (args.impl == "cas_mutex_F") {
+        RUN_BENCHMARK(cas_mutex_F);
+#ifdef WAKEUP
+    } else if (args.impl == "queue_lock") {
+        RUN_BENCHMARK(queue_lock);
+#endif
+#endif
+    } else {
+        LOG("'%s' is not implemented!\n", args.impl.c_str());
+        exit(1);
+    }
 
     return 0;
 }
