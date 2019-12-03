@@ -5,8 +5,9 @@
 #include <emu_c_utils/emu_c_utils.h>
 
 #include "common.h"
+#ifdef __EMU_CC__
 #include "queue_lock.h"
-
+#endif
 
 // Define type-safe wrappers for Emu atomic intrinsics
 // TODO Include these from emu_cxx_utils
