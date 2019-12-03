@@ -113,7 +113,7 @@ public:
     void * alloc(size_t sz)
     {
         // Increment the pointer to reserve our chunk
-        uint8_t * ptr = emu::atomic_addms(&pool_begin, sz);
+        uint8_t * ptr = atomic_addms(&pool_begin, sz);
         // Check for overflow
         if (ptr + sz > pool_end) {
             // Runtime malloc error
@@ -182,7 +182,7 @@ public:
             // Read pointer to the next free block
             next_block = my_block->next;
             // Atomically replace the head of the list with the next free block
-        } while (my_block != emu::atomic_cas(&head, my_block, next_block));
+        } while (my_block != atomic_cas(&head, my_block, next_block));
 
         return (void*)my_block;
     }
