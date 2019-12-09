@@ -26,7 +26,7 @@ init_replicated_ptr(long ** loc, long * ptr)
 }
 
 void
-bulk_copy_data_init(bulk_copy_data * data, const char* alloc_mode, long n, long num_threads)
+bulk_copy_data_init(bulk_copy_data * data, long target_nodelet, long n, long num_threads)
 {
     mw_replicated_init(&data->n, n);
     mw_replicated_init(&data->num_threads, num_threads);
@@ -37,21 +37,9 @@ bulk_copy_data_init(bulk_copy_data * data, const char* alloc_mode, long n, long 
     init_replicated_ptr(&data->src,
         mw_localmalloc(n * sizeof(long), &local_to[0])
     );
-
-    long remote_nodelet = 0;
-    if (!strcmp(alloc_mode, "intra_nodelet")) {
-        remote_nodelet = 0;
-    } else if (!strcmp(alloc_mode, "intra_node")) {
-        remote_nodelet = 1;
-    } else if (!strcmp(alloc_mode, "intra_chick")) {
-        remote_nodelet = 8;
-    } else {
-        LOG("Invalid alloc_mode, must be one of ['intra_nodelet', 'intra_node', 'intra_chick']\n");
-        exit(-1);
-    }
     // Allocate an array on nodelet 1, and replicate the pointer
     init_replicated_ptr(&data->dst,
-        mw_localmalloc(n * sizeof(long), &local_to[remote_nodelet])
+        mw_localmalloc(n * sizeof(long), &local_to[target_nodelet])
     );
 #ifndef NO_VALIDATE
     // Initialize the arrays
@@ -134,30 +122,33 @@ replicated bulk_copy_data data;
 int main(int argc, char** argv)
 {
     struct {
-        const char* spawn_mode;
-        const char* alloc_mode;
+        const char* impl;
+        long target_nodelet;
         long log2_num_elements;
         long num_threads;
         long num_trials;
     } args;
 
     if (argc != 6) {
-        LOG("Usage: %s spawn_mode alloc_mode log2_num_elements num_threads num_trials\n", argv[0]);
+        LOG("Usage: %s impl target_nodelet log2_num_elements num_threads num_trials\n", argv[0]);
         exit(1);
     } else {
-        args.spawn_mode = argv[1];
-        args.alloc_mode = argv[2];
+        args.impl = argv[1];
+        args.target_nodelet = atol(argv[2]);
         args.log2_num_elements = atol(argv[3]);
         args.num_threads = atol(argv[4]);
         args.num_trials = atol(argv[5]);
 
-        if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
-        if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
+        if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0\n"); exit(1); }
+        if (args.num_threads <= 0) { LOG("num_threads must be > 0\n"); exit(1); }
+        if (args.num_trials <= 0) { LOG("num_trials must be > 0\n"); exit(1); }
+        if (args.target_nodelet < 0 || args.target_nodelet >= NODELETS()) {
+            LOG("target_nodelet out of range\n"); exit(1);
+        }
     }
 
-    hooks_set_attr_str("spawn_mode", args.spawn_mode);
-    hooks_set_attr_str("alloc_mode", args.alloc_mode);
+    hooks_set_attr_str("impl", args.impl);
+    hooks_set_attr_i64("target_nodelet", args.target_nodelet);
     hooks_set_attr_i64("log2_num_elements", args.log2_num_elements);
     hooks_set_attr_i64("num_threads", args.num_threads);
     hooks_set_attr_i64("num_nodelets", NODELETS());
@@ -166,19 +157,20 @@ int main(int argc, char** argv)
     long n = 1L << args.log2_num_elements;
     long mbytes = n * sizeof(long) / (1024*1024);
     LOG("Initializing arrays with %li elements each (%li MiB)\n", n, mbytes);
-    bulk_copy_data_init(&data, args.alloc_mode, n, args.num_threads);
-    LOG("Doing bulk copy (%s) using %s\n", args.alloc_mode, args.spawn_mode);
+    bulk_copy_data_init(&data, args.target_nodelet, n, args.num_threads);
+    LOG("Copying %li MiB from nlet[0] to nlet[%li] using %s\n", 
+        mbytes, args.target_nodelet, args.impl);
 
     #define RUN_BENCHMARK(X) bulk_copy_run(&data, X, args.num_trials)
 
-    if (!strcmp(args.spawn_mode, "memcpy")) {
+    if (!strcmp(args.impl, "memcpy")) {
         RUN_BENCHMARK(bulk_copy_memcpy);
-    } else if (!strcmp(args.spawn_mode, "serial")) {
+    } else if (!strcmp(args.impl, "serial")) {
         RUN_BENCHMARK(bulk_copy_serial);
-    } else if (!strcmp(args.spawn_mode, "emu_for")) {
+    } else if (!strcmp(args.impl, "emu_for")) {
         RUN_BENCHMARK(bulk_copy_emu_for);
     } else {
-        LOG("Spawn mode %s not implemented!", args.spawn_mode);
+        LOG("%s not implemented!", args.impl);
     }
 #ifndef NO_VALIDATE
     LOG("Validating results...");
