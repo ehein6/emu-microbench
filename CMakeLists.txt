@@ -71,6 +71,7 @@ add_exe(hot_range.c)
 add_exe(hot_range_chunked.c)
 
 add_exe(allocation.cc)
+add_exe(vector.cc)
 
 # 'locks' uses assembly, disable for non-Emu platform
 if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
