@@ -1,13 +1,12 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdbool.h>
+#include <cstdio>
+#include <cstdint>
+#include <cstdlib>
 #include <cilk/cilk.h>
-#include <assert.h>
-#include <string.h>
+#include <cassert>
+#include <cstring>
 
 #include <emu_c_utils/emu_c_utils.h>
-#include <emu_cxx_utils/spawn_templates.h>
+#include <emu_cxx_utils/for_each.h>
 #include "common.h"
 
 using namespace emu;
@@ -17,7 +16,6 @@ struct local_stream {
     long * b;
     long * c;
     long n;
-    long num_threads;
 
     local_stream(long n) : n(n)
     {
@@ -27,11 +25,6 @@ struct local_stream {
         assert(b);
         c = (long*)malloc(n * sizeof(long));
         assert(c);
-
-        // TODO init in parallel
-        memset(a, 0, n * sizeof(long));
-        memset(b, 0, n * sizeof(long));
-        memset(c, 0, n * sizeof(long));
     }
 
     ~local_stream()
@@ -39,6 +32,23 @@ struct local_stream {
         free(a);
         free(b);
         free(c);
+    }
+
+    void init()
+    {
+        memset(a, 0, n * sizeof(long));
+        memset(b, 0, n * sizeof(long));
+        memset(c, 0, n * sizeof(long));
+    }
+
+    void validate()
+    {
+        for (long i = 0; i < n; ++i) {
+            if (c[i] != 3) {
+                LOG("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", i, c[i]);
+                exit(1);
+            }
+        }
     }
 
     void
@@ -61,22 +71,41 @@ struct local_stream {
     }
 
     void
-    add_serial_spawn()
+    add_sequential()
     {
-        local_serial_spawn(0, n, n/num_threads, [this](long i) {
+        parallel::for_each(seq, a, a + n, [this](long& a_ref) {
+            long i = &a_ref - a;
             c[i] = a[i] + b[i];
         });
     }
 
     void
-    add_recursive_spawn()
+    add_parallel()
     {
-        local_recursive_spawn(0, n, n/num_threads, [this](long i) {
+        parallel::for_each(par, a, a + n, [this](long& a_ref) {
+            long i = &a_ref - a;
             c[i] = a[i] + b[i];
         });
     }
-    
-    
+
+    void
+    add_static()
+    {
+        parallel::for_each(fixed, a, a + n, [this](long& a_ref) {
+            long i = &a_ref - a;
+            c[i] = a[i] + b[i];
+        });
+    }
+
+    void
+    add_dynamic()
+    {
+        parallel::for_each(dyn, a, a + n, [this](long& a_ref) {
+            long i = &a_ref - a;
+            c[i] = a[i] + b[i];
+        });
+    }
+
     void
     run(const char * name, long num_trials)
     {
@@ -91,19 +120,26 @@ struct local_stream {
                 time_ms = hooks_region_end();   \
             } while(false)
 
-            if (!strcmp(name, "cilk_for")) {
-                RUN_BENCHMARK(add_cilk_for);
-            } else if (!strcmp(name, "serial_spawn")) {
-                RUN_BENCHMARK(add_serial_spawn);
-            } else if (!strcmp(name, "recursive_spawn")) {
-                RUN_BENCHMARK(add_recursive_spawn);
-            } else if (!strcmp(name, "serial")) {
+            if (!strcmp(name, "serial")) {
                 RUN_BENCHMARK(add_serial);
+            } else if (!strcmp(name, "cilk_for")) {
+                RUN_BENCHMARK(add_cilk_for);
+            } else if (!strcmp(name, "seq")) {
+                RUN_BENCHMARK(add_sequential);
+            } else if (!strcmp(name, "par")) {
+                RUN_BENCHMARK(add_parallel);
+            } else if (!strcmp(name, "dyn")) {
+                RUN_BENCHMARK(add_dynamic);
+            } else if (!strcmp(name, "fixed")) {
+                RUN_BENCHMARK(add_static);
             } else {
                 printf("Mode %s not implemented!", name);
+                exit(1);
             }
-            double bytes_per_second = (n * sizeof(long) * 3) / (time_ms/1000);
-            LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
+            #undef RUN_BENCHMARK
+            double mbytes_per_second = (1e-6 * n * sizeof(long) * 3)
+                                       / (1e-3 * time_ms);
+            LOG("%3.2f MB/s\n", mbytes_per_second);
         }
     }
 };
@@ -114,7 +150,6 @@ int main(int argc, char** argv)
     struct {
         const char* mode;
         long log2_num_elements;
-        long num_threads;
         long num_trials;
     } args;
 
@@ -124,25 +159,23 @@ int main(int argc, char** argv)
     } else {
         args.mode = argv[1];
         args.log2_num_elements = atol(argv[2]);
-        args.num_threads = atol(argv[3]);
         args.num_trials = atol(argv[4]);
 
         if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
-        if (args.num_threads <= 0) { LOG("num_threads must be > 0"); exit(1); }
         if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
     }
 
     long n = 1L << args.log2_num_elements;
     LOG("Initializing arrays with %li elements each (%li MiB)\n",
-        n, (n * sizeof(long)) / (1024*1024)); fflush(stdout);
-    LOG("Doing vector addition using %s\n", args.mode); fflush(stdout);
-
+        n, (n * sizeof(long)) / (1024*1024));
     local_stream benchmark(n);
-    benchmark.num_threads = args.num_threads;
-
-    printf("Doing vector addition using %s\n", args.mode); fflush(stdout);
-
+#ifndef NO_VALIDATE
+    benchmark.init();
+#endif
+    LOG("Doing vector addition using %s\n", args.mode);
     benchmark.run(args.mode, args.num_trials);
-
+#ifndef NO_VALIDATE
+    benchmark.validate();
+#endif
     return 0;
 }

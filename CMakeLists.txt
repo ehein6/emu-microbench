@@ -4,9 +4,9 @@ include (ExternalProject)
 
 project(emu-microbench C ASM CXX)
 
-# Use the 2011 standards for C and C++
+# Use the 2011/2017 standards for C and C++
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 # Turn warnings into errors
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
@@ -14,16 +14,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus")
 
-# Disable some errant warnings caused by cilk_for
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused -Wno-uninitialized")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-uninitialized")
-
 # Arch-specific directives
-if (CMAKE_SYSTEM_NAME STREQUAL "Emu1")
-    # Disable some errant warnings caused by cilk_for
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cilk-loop-control-var-modification")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-cilk-loop-control-var-modification")
-else()
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
     # Link with cilk runtime
     link_libraries(cilkrts)
 endif()
@@ -81,10 +73,7 @@ else()
 endif()
 install(TARGETS locks RUNTIME DESTINATION ".")
 
-set(ENABLE_CXX_BENCHMARKS OFF
-    CACHE BOOL "Build C++ benchmarks, which rely on emu_cxx_utils.")
-if (ENABLE_CXX_BENCHMARKS)
-    # C++ benchmarks
-    add_exe(local_stream_cxx.cc)
-    add_exe(global_stream_cxx.cc)
-endif()
+# C++ benchmarks
+include_directories(.)
+add_exe(local_stream_cxx.cc)
+add_exe(global_stream_1d_cxx.cc)
