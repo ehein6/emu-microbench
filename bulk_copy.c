@@ -70,6 +70,14 @@ bulk_copy_serial(bulk_copy_data * data)
     }
 }
 
+noinline void
+bulk_copy_cilk_for(bulk_copy_data * data)
+{
+    cilk_for (long i = 0; i < data->n; ++i) {
+        data->dst[i] = data->src[i];
+    }
+}
+
 static noinline void
 emu_local_for_copy_long_worker(long begin, long end, void * arg1, void * arg2)
 {
@@ -167,6 +175,8 @@ int main(int argc, char** argv)
         RUN_BENCHMARK(bulk_copy_memcpy);
     } else if (!strcmp(args.impl, "serial")) {
         RUN_BENCHMARK(bulk_copy_serial);
+    } else if (!strcmp(args.impl, "cilk_for")) {
+        RUN_BENCHMARK(bulk_copy_emu_for);
     } else if (!strcmp(args.impl, "emu_for")) {
         RUN_BENCHMARK(bulk_copy_emu_for);
     } else {
