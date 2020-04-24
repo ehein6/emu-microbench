@@ -125,7 +125,6 @@ relink_worker_1d(long * array, long begin, long end, va_list args)
 {
     pointer_chase_data* data = va_arg(args, pointer_chase_data *);
     long * indices = data->indices;
-    node** pool = data->pool;
     long n = data->n;
     for (long i = begin; i < end; i += NODELETS()) {
         // String pointers together according to the index

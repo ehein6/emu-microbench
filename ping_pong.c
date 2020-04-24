@@ -1,7 +1,8 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <getopt.h>
-#include <cilk.h>
-#include <memoryweb.h>
+#include <cilk/cilk.h>
+#include <emu_c_utils/emu_c_utils.h>
 
 replicated long num_migrations;
 replicated long num_threads;
@@ -31,7 +32,7 @@ noinline long ping_pong_spawn(long *srcptr, long *dstptr)
   volatile unsigned long endtime = CLOCK();
   volatile unsigned long endnid = NODE_ID();
   if (startnid != endnid) {
-    printf("start NODE_ID %d end NODE_ID %d\n", startnid, endnid); exit(1); }
+    printf("start NODE_ID %ld end NODE_ID %ld\n", startnid, endnid); exit(1); }
   long totaltime = endtime - starttime;
   return totaltime;
 }
@@ -79,7 +80,7 @@ noinline void gather(long ntr)
 	double time_ms = (double)cycles / (ntr * 175.0 * 1e3);
 	double million_mps = (double)num_migrations / (time_ms * 1e3);
 	double latency_us = (double)1e6 / million_mps;
-	printf("%d %d %d %f %f %f\n", i, j,
+	printf("%ld %ld %ld %f %f %f\n", i, j,
 	       cycles, time_ms, million_mps, latency_us);
       }
     }
@@ -119,12 +120,12 @@ int main(int argc, char** argv)
 
   // log variables for the run
   long n = 1L << log2_num;
-  printf("ping pong: num nodelets %d\n", NODELETS());
-  printf("ping pong: src nlet %d\n", src);
-  printf("ping pong: dst nlet %d\n", dst);
-  printf("ping pong: num migrations %d\n", n);
-  printf("ping pong: num threads %d\n", nth);
-  printf("ping pong: num trials %d\n", ntr);
+  printf("ping pong: num nodelets %ld\n", NODELETS());
+  printf("ping pong: src nlet %ld\n", src);
+  printf("ping pong: dst nlet %ld\n", dst);
+  printf("ping pong: num migrations %ld\n", n);
+  printf("ping pong: num threads %ld\n", nth);
+  printf("ping pong: num trials %ld\n", ntr);
   fflush(stdout);
 
   // replicated variables so no migrations for loop bounds

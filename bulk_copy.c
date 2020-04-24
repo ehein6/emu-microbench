@@ -78,23 +78,10 @@ bulk_copy_cilk_for(bulk_copy_data * data)
     }
 }
 
-static noinline void
-emu_local_for_copy_long_worker(long begin, long end, void * arg1, void * arg2)
-{
-    long * dst = arg1;
-    long * src = arg2;
-    for (long i = begin; i < end; ++i) {
-        dst[i] = src[i];
-    }
-}
-
 noinline void
 bulk_copy_emu_for(bulk_copy_data * data)
 {
     emu_local_for_copy_long(data->dst, data->src, data->n);
-//    emu_local_for_v2(0, data->n, data->n / data->num_threads,
-//        emu_local_for_copy_long_worker, data->dst, data->src
-//    );
 }
 
 

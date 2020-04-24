@@ -64,7 +64,6 @@ index_init_worker(long * indices, long begin, long end, va_list args) {
     const long n = data.n;
     const long offset = data.offset;
     const long length = data.length;
-    const long num_nodelets = NODELETS();
     for (long i = begin; i < end; i += NODELETS()) {
         // Map onto a 'length'-sized chunk of the array, 'offset' elements from the start
         // If offset + length > n, the hot range will be split between the first and last nodelets

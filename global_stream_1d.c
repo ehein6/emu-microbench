@@ -18,7 +18,7 @@ typedef struct global_stream_data {
     long num_threads;
 } global_stream_data;
 
-
+#ifndef NO_VALIDATE
 static void init_worker(long * array, long begin, long end, va_list args)
 {
     global_stream_data * data = va_arg(args, global_stream_data *);
@@ -29,6 +29,7 @@ static void init_worker(long * array, long begin, long end, va_list args)
         data->c[i] = 0;
     }
 }
+#endif
 
 void
 replicated_init_ptr(long** ptr, long* val)

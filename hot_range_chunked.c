@@ -40,15 +40,15 @@ replicated hot_range_data data;
 
 // Same as emu_chunked_array_index, except this one migrates instead of calling mw_arrayindex
 // Also we save some work by assuming long type
-static inline long *
-chunked_index(emu_chunked_array * array, long i)
-{
-    long epn = data.n / NODELETS();
-    long nlet = i >> PRIORITY(epn);
-    long offset = i & (epn - 1);
-    long ** ptr = (long**)array->data;
-    return &ptr[nlet][offset];
-}
+//static inline long *
+//chunked_index(emu_chunked_array * array, long i)
+//{
+//    long epn = data.n / NODELETS();
+//    long nlet = i >> PRIORITY(epn);
+//    long offset = i & (epn - 1);
+//    long ** ptr = (long**)array->data;
+//    return &ptr[nlet][offset];
+//}
 
 //#define INDEX(ARRAY, I) (*chunked_index(ARRAY, I))
 #define INDEX(ARRAY, I) (*(long*)emu_chunked_array_index(ARRAY, I))
@@ -74,7 +74,6 @@ index_init_worker(emu_chunked_array * indices, long begin, long end, va_list arg
     const long n = data.n;
     const long offset = data.offset;
     const long length = data.length;
-    const long num_nodelets = NODELETS();
     for (long i = begin; i < end; ++i) {
         // Map onto a 'length'-sized chunk of the array, 'offset' elements from the start
         // If offset + length > n, the hot range will be split between the first and last nodelets
