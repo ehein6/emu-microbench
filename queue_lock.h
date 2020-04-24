@@ -76,7 +76,7 @@ public:
         if (queue_pos_ > 0) {
             // Wake up the thread at the tail of the list
             long slot = --queue_pos_;
-            WAKEUP(queue_[slot].storage);
+            while (!WAKEUP(queue_[slot].storage));
             // The thread we just woke up owns the queue_lock now
         } else {
             // Unlock this lock
