@@ -153,8 +153,8 @@ int main(int argc, char** argv)
         long num_trials;
     } args;
 
-    if (argc != 5) {
-        LOG("Usage: %s mode log2_num_elements num_threads num_trials\n", argv[0]);
+    if (argc != 4) {
+        LOG("Usage: %s mode log2_num_elements num_trials\n", argv[0]);
         exit(1);
     } else {
         args.mode = argv[1];
@@ -164,6 +164,9 @@ int main(int argc, char** argv)
         if (args.log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
         if (args.num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
     }
+
+    hooks_set_attr_str("mode", args.mode);
+    hooks_set_attr_i64("log2_num_elements", args.log2_num_elements);
 
     long n = 1L << args.log2_num_elements;
     LOG("Initializing arrays with %li elements each (%li MiB)\n",
