@@ -5,8 +5,10 @@
 #include <cilk/cilk.h>
 #include <assert.h>
 #include <string.h>
+#include <utility>
 #include <emu_c_utils/emu_c_utils.h>
 #include <emu_cxx_utils/striped_array.h>
+#include <emu_cxx_utils/zip_iterator.h>
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/repl_array.h>
 #include <emu_cxx_utils/for_each.h>
@@ -83,6 +85,7 @@ struct global_stream_1d
             c[i] = a[i] + b[i];
         });
     }
+
     void
     add_parallel()
     {
@@ -111,6 +114,20 @@ struct global_stream_1d
     }
 
     void
+    transform_static()
+    {
+        auto begin = make_zip_iterator(a.begin(), b.begin(), c.begin());
+        auto end = make_zip_iterator(a.end(), b.end(), c.end());
+        parallel::for_each(fixed, begin, end, [](auto t) {
+            auto& a = std::get<0>(t);
+            auto& b = std::get<1>(t);
+            auto& c = std::get<2>(t);
+            c = a + b;
+        });
+    }
+
+
+    void
     run(const char * name, long num_trials)
     {
         LOG("In run(%s, %li)\n", name, num_trials);
@@ -137,6 +154,8 @@ struct global_stream_1d
                 RUN_BENCHMARK(add_dynamic);
             } else if (!strcmp(name, "fixed")) {
                 RUN_BENCHMARK(add_static);
+            } else if (!strcmp(name, "transform_fixed")) {
+                RUN_BENCHMARK(transform_static);
             } else {
                 printf("Mode %s not implemented!", name);
                 exit(1);
