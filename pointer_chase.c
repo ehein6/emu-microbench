@@ -353,11 +353,11 @@ pointer_chase_serial_spawn(pointer_chase_data * data)
 }
 
 void
-serial_spawn_local(pointer_chase_data * data)
+serial_spawn_local(pointer_chase_data * data, long nodelet_id)
 {
     // Spawn a thread for each list head located at this nodelet
     // Using striped indexing to avoid migrations
-    for (long i = NODE_ID(); i < data->num_threads; i += NODELETS()) {
+    for (long i = nodelet_id; i < data->num_threads; i += NODELETS()) {
         cilk_spawn chase_pointers(data->heads[i], &data->sum);
     }
 }
@@ -368,7 +368,8 @@ pointer_chase_serial_remote_spawn(pointer_chase_data * data)
     // Spawn a thread at each nodelet
     for (long nodelet_id = 0; nodelet_id < NODELETS(); ++nodelet_id ) {
         if (nodelet_id >= data->num_threads) { break; }
-        cilk_spawn_at(&data->heads[nodelet_id]) serial_spawn_local(data);
+        cilk_migrate_hint(&data->heads[nodelet_id]);
+        cilk_spawn serial_spawn_local(data, nodelet_id);
     }
 }
 
